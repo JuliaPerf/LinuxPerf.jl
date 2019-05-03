@@ -1,30 +1,37 @@
 module LinuxPerf
 
+using Printf
+
+export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
+
+import Base: show, length, close
+
 const SYS_perf_event_open = 298
 
-type perf_event_attr
-    typ :: UInt32
-    size :: UInt32
-    config :: UInt64
-    sample_period_or_freq :: UInt64
-    sample_type :: UInt64
-    read_format :: UInt64
-    flags :: UInt64
-    wakeup_events_or_watermark :: UInt32
-    bp_type :: UInt32
-    bp_addr_or_config1 :: UInt64
-    bp_len_or_config2 :: UInt64
-    branch_sample_type :: UInt64
+mutable struct perf_event_attr
+    typ::UInt32
+    size::UInt32
+    config::UInt64
+    sample_period_or_freq::UInt64
+    sample_type::UInt64
+    read_format::UInt64
+    flags::UInt64
+    wakeup_events_or_watermark::UInt32
+    bp_type::UInt32
+    bp_addr_or_config1::UInt64
+    bp_len_or_config2::UInt64
+    branch_sample_type::UInt64
 
-    sample_regs_user :: UInt64
-    sample_stack_user :: UInt32
-    clockid :: Int32
-    sample_regs_intr :: UInt64
-    aux_watermark :: UInt32
-    __reserved_2 :: UInt32
+    sample_regs_user::UInt64
+    sample_stack_user::UInt32
+    clockid::Int32
+    sample_regs_intr::UInt64
+    aux_watermark::UInt32
+    __reserved_2::UInt32
 
-    perf_event_attr() = new()
 end
+
+perf_event_attr() = perf_event_attr(ntuple(x->0, fieldcount(perf_event_attr))...)
 
 const EVENT_TYPES =
     [
@@ -70,9 +77,9 @@ const PERF_FORMAT_TOTAL_TIME_ENABLED = 1 << 0
 const PERF_FORMAT_TOTAL_TIME_RUNNING = 1 << 1
 const PERF_FORMAT_GROUP = 1 << 3
 
-immutable EventType
-    category :: UInt32
-    event :: UInt64
+struct EventType
+    category::UInt32
+    event::UInt64
 end
 
 function all_events()
@@ -141,17 +148,19 @@ function EventType(cat::Symbol, cache::Symbol, op::Symbol, evt::Symbol)
                      cache_id | (op_id << 8) | (evt_id << 16))
 end
 
-type EventGroup
-    leader_fd :: Cint
-    fds :: Vector{Cint}
-    event_types :: Vector{EventType}
-    leader_io :: IOStream
-    function EventGroup(types :: Vector{EventType};
+mutable struct EventGroup
+    leader_fd::Cint
+    fds::Vector{Cint}
+    event_types::Vector{EventType}
+    leader_io::IOStream
+
+    function EventGroup(types::Vector{EventType};
                         warn_unsupported = true,
                         userspace_only = false
                         )
-        my_types = Array(EventType, 0)
-        group = new(-1, Array(Cint, 0), Array(EventType, 0))
+        my_types = EventType[]
+        group = new(-1, Cint[], EventType[])
+
         for (i,evt_type) in enumerate(types)
             attr = perf_event_attr()
             attr.typ = evt_type.category
@@ -175,14 +184,13 @@ type EventGroup
                 errno = Libc.errno()
                 if errno in (Libc.EINVAL,Libc.ENOENT)
                     if warn_unsupported
-                        warn("$evt_type not supported, skipping")
+                        @warn("$evt_type not supported, skipping")
                     end
                     continue
                 else
                     if errno == Libc.EACCES && !userspace_only
-                        warn("try to adjust /proc/sys/kernel/perf_event_paranoid to a value <= 1 or use user-space only events")
+                        @warn("try to adjust /proc/sys/kernel/perf_event_paranoid to a value <= 1 or use user-space only events")
                     end
-                    @show errno
                     error("perf_event_open error : $(Libc.strerror(errno))")
                 end
             end
@@ -218,30 +226,36 @@ function ioctl(group::EventGroup, x)
         error("ioctl error : $(Libc.strerror())")
     end
 end
+
 enable!(g::EventGroup) = ioctl(g, PERF_EVENT_IOC_ENABLE)
 disable!(g::EventGroup) = ioctl(g, PERF_EVENT_IOC_DISABLE)
 reset!(g::EventGroup) = ioctl(g, PERF_EVENT_IOC_RESET)
+
 function Base.close(g::EventGroup)
     for fd in g.fds
         ccall(:close, Cint, (Cint,), fd)
     end
 end
 
-type PerfBench
-    groups :: Vector{EventGroup}
+mutable struct PerfBench
+    groups::Vector{EventGroup}
 end
-immutable Counter
-    event :: EventType
-    value :: UInt64
-    enabled :: UInt64
-    running :: UInt64
+
+struct Counter
+    event::EventType
+    value::UInt64
+    enabled::UInt64
+    running::UInt64
 end
-immutable Counters
-    counters :: Vector{Counter}
+
+struct Counters
+    counters::Vector{Counter}
 end
+
 function Base.show(io::IO, c::Counters)
+    println(io)
     for c in c.counters
-        print(io, c.event, " : ")
+        print(io, c.event, ": ")
         if c.enabled == 0
             print(io, "never enabled")
         elseif c.running == 0
@@ -249,17 +263,20 @@ function Base.show(io::IO, c::Counters)
         else
             @printf(io, "\n\t%20d (%.1f %%)", Int64(c.value), 100*(c.running/c.enabled))
         end
-        println()
+        println(io)
     end
 end
+
 enable!(b::PerfBench) = foreach(enable!, b.groups)
 disable!(b::PerfBench) = foreach(disable!, b.groups)
 reset!(b::PerfBench) = foreach(reset!, b.groups)
+
 function counters(b::PerfBench)
-    c = Array(Counter, 0)
+    c = Counter[]
     for g in b.groups
-        values = read(g.leader_io, UInt64, length(g)+1+2)
-        @assert(length(g) == values[1])
+        values = Vector{UInt64}(undef, length(g)+1+2)
+        read!(g.leader_io, values)
+        #?Ref@assert(length(g) == values[1])
         enabled, running = values[2], values[3]
         for i = 1:length(g)
             push!(c, Counter(g.event_types[i], values[3+i],
@@ -267,17 +284,6 @@ function counters(b::PerfBench)
         end
     end
     Counters(c)
-end
-function make_bench(x)
-    groups = Array(EventGroup, 0)
-    for y in x
-        if isa(y, EventType)
-            push!(groups, EventGroup([y]))
-        else
-            push!(groups, EventGroup(y))
-        end
-    end
-    PerfBench(groups)
 end
 
 const reasonable_defaults =
@@ -296,5 +302,17 @@ const reasonable_defaults =
       EventType(:cache, :L1_data, :read, :miss)],
      [EventType(:cache, :L1_data, :write, :access),
       EventType(:cache, :L1_data, :write, :miss)]=#]
+
+function make_bench(x)
+    groups = EventGroup[]
+    for y in x
+        if isa(y, EventType)
+            push!(groups, EventGroup([y]))
+        else
+            push!(groups, EventGroup(y))
+        end
+    end
+    PerfBench(groups)
+end
 
 end
