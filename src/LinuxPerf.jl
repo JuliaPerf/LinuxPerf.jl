@@ -315,4 +315,6 @@ function make_bench(x)
     PerfBench(groups)
 end
 
+make_bench() = make_bench(reasonable_defaults)
+
 end
