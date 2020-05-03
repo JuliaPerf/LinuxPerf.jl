@@ -1,4 +1,4 @@
-julia wrapper for linux's perf_event_open
+# LinuxPerf.jl -- Julia wrapper for Linux's perf
 
 the kernel multiplexes event counter that requires limited hardware resources so some counters are only active for a fraction of the running time (% on the right).
 

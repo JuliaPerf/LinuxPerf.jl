@@ -1,0 +1,9 @@
+name = "LinuxPerf"
+uuid = "b4c46c6c-4fb0-484d-a11a-41bc3392d094"
+version = "0.1.0"
+
+[deps]
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[compat]
+julia = "1"
