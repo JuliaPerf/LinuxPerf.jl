@@ -156,7 +156,7 @@ mutable struct EventGroup
 
     function EventGroup(types::Vector{EventType};
                         warn_unsupported = true,
-                        userspace_only = false
+                        userspace_only = true
                         )
         my_types = EventType[]
         group = new(-1, Cint[], EventType[])
