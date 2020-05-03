@@ -2,11 +2,31 @@ module LinuxPerf
 
 using Printf
 
+export @measure, @measured
 export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
 
 import Base: show, length, close
 
-const SYS_perf_event_open = 298
+macro measure(expr, args...)
+    esc(quote
+        local bench
+        _, bench = $LinuxPerf.@measured($expr, $(args...))
+        $counters(bench)
+    end)
+end
+macro measured(expr, events = reasonable_defaults)
+    quote
+        local bench = $make_bench($events);
+        local v
+        try
+            $enable!(bench)
+            v = $(esc(expr))
+        finally
+            $disable!(bench)
+        end
+        (v, bench)
+    end
+end
 
 mutable struct perf_event_attr
     typ::UInt32
