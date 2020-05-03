@@ -120,6 +120,22 @@ function Base.show(io::IO, e::EventType)
     end
 end
 
+const SYS_perf_event_open = 298
+
+"""
+    perf_event_open(attr::perf_event_attr, pid, cpu, fd, flags)
+"""
+function perf_event_open(attr::perf_event_attr, pid, cpu, leader_fd, flags)
+    r_attr = Ref(attr)
+    GC.@preserve r_attr begin
+        # Have to do a manual conversion, since the ABI is a vararg call
+        ptr = Base.unsafe_convert(Ptr{Cvoid}, Base.cconvert(Ptr{Cvoid}, r_attr))
+        fd = ccall(:syscall, Cint, (Clong, Clong...), SYS_perf_event_open,
+                   ptr, pid, cpu, leader_fd, flags)
+    end
+    return fd
+end
+
 function EventType(cat::Symbol, event::Symbol)
     cat !== :cache || error("cache events needs 3 arguments")
     for (cat_name, cat_id, events) in EVENT_TYPES
@@ -161,7 +177,7 @@ mutable struct EventGroup
         my_types = EventType[]
         group = new(-1, Cint[], EventType[])
 
-        for (i,evt_type) in enumerate(types)
+        for (i, evt_type) in enumerate(types)
             attr = perf_event_attr()
             attr.typ = evt_type.category
             attr.size = sizeof(perf_event_attr)
@@ -177,9 +193,8 @@ mutable struct EventGroup
                 PERF_FORMAT_GROUP |
                 PERF_FORMAT_TOTAL_TIME_ENABLED |
                 PERF_FORMAT_TOTAL_TIME_RUNNING
-            fd = ccall(:syscall, Cint, (Clong, Clong...), SYS_perf_event_open,
-                       pointer_from_objref(attr),
-                       0, -1, group.leader_fd, 0)
+
+            fd = perf_event_open(attr, 0, -1, group.leader_fd, 0)
             if fd < 0
                 errno = Libc.errno()
                 if errno in (Libc.EINVAL,Libc.ENOENT)
@@ -222,9 +237,8 @@ const PERF_EVENT_IOC_RESET =   UInt64(0x2403)
 
 function ioctl(group::EventGroup, x)
     res = ccall(:ioctl, Cint, (Cint, Clong, Clong), group.leader_fd, x, 1)
-    if res < 0
-        error("ioctl error : $(Libc.strerror())")
-    end
+    Base.systemerror(:ioctl, res < 0)
+    return nothing
 end
 
 enable!(g::EventGroup) = ioctl(g, PERF_EVENT_IOC_ENABLE)
