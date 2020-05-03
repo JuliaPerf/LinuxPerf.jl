@@ -3,6 +3,8 @@ using Test
 
 import LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters
 
+@testset "LinuxPerf" begin
+
 @testset "simple benchmark" begin
     @test begin
         bench = make_bench(reasonable_defaults);
@@ -32,4 +34,6 @@ end
 
     @test v === 4
     @test typeof(c1) == typeof(counters(b1))
+end
+
 end
