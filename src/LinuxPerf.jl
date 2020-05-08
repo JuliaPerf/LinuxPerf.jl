@@ -1,6 +1,8 @@
 module LinuxPerf
 
 using Printf
+using PrettyTables
+using Formatting
 
 export @measure, @measured
 export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
@@ -287,18 +289,13 @@ struct Counters
 end
 
 function Base.show(io::IO, c::Counters)
-    println(io)
-    for c in c.counters
-        print(io, c.event, ": ")
-        if c.enabled == 0
-            print(io, "never enabled")
-        elseif c.running == 0
-            print(io, "did not run")
-        else
-            @printf(io, "\n\t%20d (%.1f %%)", Int64(c.value), 100*(c.running/c.enabled))
-        end
-        println(io)
+    events = map(x -> x.event, c.counters)
+    stats  = mapreduce(vcat, c.counters) do c
+        c.enabled == 0 ? ["never enabled" "0 %"] :
+            c.running == 0 ? ["did not run" "0 %"] :
+                [format(Int64(c.value), commas=true) @sprintf("%.1f %%", 100*(c.running/c.enabled))]
     end
+    return pretty_table(io, stats, ["Events", "Active Time"], row_names=events, alignment=:l, crop=:none, body_hlines=collect(axes(stats, 1)))
 end
 
 enable!(b::PerfBench) = foreach(enable!, b.groups)
