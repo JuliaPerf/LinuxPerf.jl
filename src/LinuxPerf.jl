@@ -194,7 +194,9 @@ mutable struct EventGroup
 
     function EventGroup(types::Vector{EventType};
                         warn_unsupported = true,
-                        userspace_only = true
+                        userspace_only = true,
+                        pinned = false,
+                        exclusive = false,
                         )
         my_types = EventType[]
         group = new(-1, Cint[], EventType[])
@@ -205,12 +207,24 @@ mutable struct EventGroup
             attr.size = sizeof(perf_event_attr)
             attr.config = evt_type.event
             attr.sample_period_or_freq = 0
-            if userspace_only
-                attr.flags = (1 << 5) # exclude kernel
-            end
+            attr.flags = 0
+            # first attribute becomes group leader
             if group.leader_fd == -1
                 attr.flags |= (1 << 0) # start disabled
             end
+            if pinned
+                attr.flags |= (1 << 2)
+            end
+            if exclusive
+                attr.flags |= (1 << 3)
+            end
+            # (1 << 4) exclude_user
+            if userspace_only
+                attr.flags |= (1 << 5) # exclude kernel
+            end
+            # (1 << 6) exclude hypervisor
+            # (1 << 7) exclude idle
+
             attr.read_format =
                 PERF_FORMAT_GROUP |
                 PERF_FORMAT_TOTAL_TIME_ENABLED |
