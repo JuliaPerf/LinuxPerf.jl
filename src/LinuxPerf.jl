@@ -93,7 +93,8 @@ const CACHE_TYPES =
      (:LLC,   2),
      (:TLB_data, 3),
      (:TLB_insn, 4),
-     (:BPU, 5)]
+     (:BPU, 5),
+     (:NODE, 6)]
 const CACHE_OPS =
     [(:read, 0),
      (:write, 1),
