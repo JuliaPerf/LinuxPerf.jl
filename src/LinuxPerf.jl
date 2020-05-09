@@ -55,9 +55,16 @@ end
 
 perf_event_attr() = perf_event_attr(ntuple(x->0, fieldcount(perf_event_attr))...)
 
+const PERF_TYPE_HARDWARE = 0
+const PERF_TYPE_SOFTWARE = 1
+const PERF_TYPE_TRACEPOINT = 2
+const PERF_TYPE_HW_CACHE = 3
+const PERF_TYPE_RAW = 4
+const PERF_TYPE_BREAKPOINT = 3
+
 const EVENT_TYPES =
     [
-     (:hw, 0, # PERF_TYPE_HARDWARE
+     (:hw, PERF_TYPE_HARDWARE, # PERF_TYPE_HARDWARE
       [(:cycles, 0), # PERF_COUNT_HW_CPU_CYCLES
        (:instructions, 1), # PERF_COUNT_HW_INSTRUCTIONS
        (:cache_access, 2), # PERF_COUNT_HW_CACHE_REFERENCES
@@ -78,8 +85,8 @@ const EVENT_TYPES =
        ])
      ]
 
-# cache events have special encoding
-const PERF_TYPE_HW_CACHE = 3
+
+# cache events have special encoding, PERF_TYPE_HW_CACHE
 const CACHE_TYPES =
     [(:L1_data, 0),
      (:L1_insn, 1),
