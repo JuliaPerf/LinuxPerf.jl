@@ -76,13 +76,30 @@ const EVENT_TYPES =
        (:stalled_cycles_backend, 8), # PERF_COUNT_HW_STALLED_CYCLES_BACKEND
        (:scaled_cycles, 9) # PERF_COUNT_HW_REF_CPU_CYCLES
        ]),
-     (:sw, 1, # PERF_TYPE_SOFTWARE
+     (:sw, PERF_TYPE_SOFTWARE, # PERF_TYPE_SOFTWARE
       [(:page_faults, 2), # PERF_COUNT_SW_PAGE_FAULTS
        (:ctx_switches, 3), # PERF_COUNT_SW_CONTEXT_SWITCHES
        (:cpu_migrations, 4), # PERF_COUNT_SW_CPU_MIGRATIONS
        (:minor_page_faults, 5), # PERF_COUNT_SW_PAGE_FAULTS_MIN
        (:major_page_faults, 6), # PERF_COUNT_SW_PAGE_FAULTS_MAJ
-       ])
+       ]),
+      (:raw, PERF_TYPE_RAW,
+      # Skylake/Kabylake
+      [
+          (:fp_arith_inst_retired_scalar_double, 0x01c7), # mul=1,vlen=1,ops=1
+          (:fp_arith_inst_retired_scalar_single, 0x02c7), # mul=1,vlen=1,ops=1
+          (:fp_arith_inst_retired_scalar, 0x03c7), 
+          (:fp_arith_inst_retired_128B_packed_double, 0x04c7), # mul=2,vlen=2,ops=1
+          (:fp_arith_inst_retired_128B_packed_single, 0x08c7), # mul=2,vlen=2,ops=1
+          (:fp_arith_inst_retired_256B_packed_double, 0x10c7), # mul=4,vlen=4,ops=1
+          (:fp_arith_inst_retired_double, 0x15c7), 
+          (:fp_arith_inst_retired_256B_packed_single, 0x20c7), # mul=4,vlen=4,ops=1
+          (:fp_arith_inst_retired_single, 0x2ac7), 
+          (:fp_arith_inst_retired_packed, 0x3cc7), 
+          (:fp_arith_inst_retired_512B_packed_double, 0x40c7), # mul=8,vlen=8,ops=1 AVX512
+          (:mem_inst_retired_all_loads, 0x81d0), 
+          (:mem_inst_retired_all_stores, 0x82d0), 
+      ])
      ]
 
 
