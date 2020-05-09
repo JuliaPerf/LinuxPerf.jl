@@ -290,8 +290,10 @@ reset!(g::EventGroup) = ioctl(g, PERF_EVENT_IOC_RESET)
 
 function Base.close(g::EventGroup)
     for fd in g.fds
+        fd == g.leader_fd && continue # close leader_fd last
         ccall(:close, Cint, (Cint,), fd)
     end
+    ccall(:close, Cint, (Cint,), g.leader_fd)
 end
 
 mutable struct PerfBench
