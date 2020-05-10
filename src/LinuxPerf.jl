@@ -99,6 +99,10 @@ const EVENT_TYPES =
           (:fp_arith_inst_retired_512B_packed_double, 0x40c7), # mul=8,vlen=8,ops=1 AVX512
           (:mem_inst_retired_all_loads, 0x81d0), 
           (:mem_inst_retired_all_stores, 0x82d0), 
+          # Skylake uncore
+          # https://www.intel.com/content/dam/www/public/us/en/documents/manuals/6th-gen-core-family-uncore-performance-monitoring-manual.pdf
+          (:unc_arb_trk_requests_all, 0x0180),
+          (:unc_arb_coh_trk_requests_all, 0x0184)
       ])
      ]
 
