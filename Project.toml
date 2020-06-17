@@ -1,6 +1,6 @@
 name = "LinuxPerf"
 uuid = "b4c46c6c-4fb0-484d-a11a-41bc3392d094"
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Formatting = "59287772-0a20-5a39-b81b-1366585eb4c0"
@@ -9,3 +9,5 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 julia = "1"
+Formatting = "0.4"
+PrettyTables = "0.9"
