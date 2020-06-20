@@ -656,6 +656,62 @@ scaledcount(counter::Counter) = counter.value * (counter.enabled / counter.runni
     @pstats [options] expr
 
 Run `expr` and gather its performance statistics.
+
+This macro basically measures the number of occurrences of events such as CPU
+cycles, branch prediction misses, page faults, and so on. The list of
+supported events can be shown by calling the `LinuxPerf.list` function.
+
+Due to the resource limitation of performance measuring units (PMUs)
+installed in a CPU core, all events may not be measured simultaneously,
+resulting in multiplexing several groups of events in a single measurement.
+If the running time is extremely short, some event groups may not be measured
+at all.
+
+The result is shown in a table. Each row consists of four columns: an event
+group indicator, an event name, a scaled count and a running rate. A comment
+may follow these columns after a hash (#) character.
+1. The event group indicated by a bracket is a set of events that are
+   measured simultaneously so that their count statistics can be meaningfully
+   compared.
+2. The event name is a conventional name of the measured event.
+3. The scaled count is the number of occurrences of the event, scaled by the
+   reciprocal of the running rate.
+4. The running rate is the ratio of the time of running and enabled.
+
+The macro can take some options. If a string object is passed, it is a
+comma-separated list of event names to measure. An event group can be
+indicated by a pair of parentheses.
+
+# Examples
+
+```
+julia> xs = randn(1_000_000);
+
+julia> sort(xs[1:9]);  # compile
+
+julia> @pstats sort(xs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ cpu-cycles               2.57e+08   48.6%  #  3.8 cycles per ns
+│ stalled-cycles-frontend  1.10e+07   48.6%  #  4.3% of cycles
+└ stalled-cycles-backend   2.48e+06   48.6%  #  1.0% of cycles
+┌ instructions             1.84e+08   51.4%  #  0.7 insns per cycle
+│ branch-instructions      3.73e+07   51.4%  # 20.2% of instructions
+└ branch-misses            7.92e+06   51.4%  # 21.2% of branch instructions
+┌ task-clock               6.75e+07  100.0%
+│ context-switches         0.00e+00  100.0%
+│ cpu-migrations           0.00e+00  100.0%
+└ page-faults              1.95e+03  100.0%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+julia> @pstats "(cpu-cycles,instructions,branch-instructions,branch-misses),page-faults" sort(xs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ cpu-cycles               2.61e+08  100.0%  #  3.9 cycles per ns
+│ instructions             1.80e+08  100.0%  #  0.7 insns per cycle
+│ branch-instructions      3.64e+07  100.0%  # 20.2% of instructions
+└ branch-misses            8.32e+06  100.0%  # 22.8% of branch instructions
+╶ page-faults              0.00e+00  100.0%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 """
 macro pstats(args...)
     if isempty(args)
