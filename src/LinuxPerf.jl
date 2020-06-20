@@ -4,7 +4,7 @@ using Printf
 using PrettyTables
 using Formatting
 
-export @measure, @measured
+export @measure, @measured, @pstats
 export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
 
 import Base: show, length, close
