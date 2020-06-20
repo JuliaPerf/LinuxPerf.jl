@@ -77,11 +77,17 @@ const EVENT_TYPES =
        (:scaled_cycles, 9) # PERF_COUNT_HW_REF_CPU_CYCLES
        ]),
      (:sw, 1, # PERF_TYPE_SOFTWARE
-      [(:page_faults, 2), # PERF_COUNT_SW_PAGE_FAULTS
+      [(:cpu_clock, 0), # PERF_COUNT_SW_CPU_CLOCK
+       (:task_clock, 1), # PEF_COUNT_SW_TASK_CLOCK
+       (:page_faults, 2), # PERF_COUNT_SW_PAGE_FAULTS
        (:ctx_switches, 3), # PERF_COUNT_SW_CONTEXT_SWITCHES
        (:cpu_migrations, 4), # PERF_COUNT_SW_CPU_MIGRATIONS
        (:minor_page_faults, 5), # PERF_COUNT_SW_PAGE_FAULTS_MIN
        (:major_page_faults, 6), # PERF_COUNT_SW_PAGE_FAULTS_MAJ
+       (:alignment_faults, 7), # PERF_COUNT_SW_ALIGNMENT_FAULTS
+       (:emulation_faults, 8), # PERF_COUNT_SW_EMULATION_FAULTS
+       (:dummy, 9), # PERF_COUNT_SW_DUMMY
+       (:bpf_output, 10), # PERF_COUNT_SW_BPF_OUTPUT
        ])
      ]
 
@@ -371,5 +377,263 @@ function make_bench(x)
 end
 
 make_bench() = make_bench(reasonable_defaults)
+
+
+# Event names are taken from the perf command.
+const NAME_TO_EVENT = Dict(
+    # hardware events
+    "branch-instructions" => EventType(:hw, :branches),
+    "branch-misses" => EventType(:hw, :branch_mispredicts),
+    "cache-misses" => EventType(:hw, :cache_misses),
+    "cache-references" => EventType(:hw, :cache_access),
+    "cpu-cycles" => EventType(:hw, :cycles),
+    "instructions" => EventType(:hw, :instructions),
+    "stalled-cycles-backend" => EventType(:hw, :stalled_cycles_backend),
+    "stalled-cycles-frontend" => EventType(:hw, :stalled_cycles_frontend),
+
+    # software events
+    "alignment-faults" => EventType(:sw, :alignment_faults),
+    "bpf-output" => EventType(:sw, :bpf_output),
+    "context-switches" => EventType(:sw, :ctx_switches),
+    "cpu-clock" => EventType(:sw, :cpu_clock),
+    "cpu-migrations" => EventType(:sw, :cpu_migrations),
+    "dummy" => EventType(:sw, :dummy),
+    "emulation-faults" => EventType(:sw, :emulation_faults),
+    "major-faults" => EventType(:sw, :major_page_faults),
+    "minor-faults" => EventType(:sw, :minor_page_faults),
+    "page-faults" => EventType(:sw, :page_faults),
+    "task-clock" => EventType(:sw, :task_clock),
+
+    # hardware cache events
+    "L1-dcache-load-misses" => EventType(:cache, :L1_data, :read, :miss),
+    "L1-dcache-loads" => EventType(:cache, :L1_data, :read, :access),
+    "L1-icache-load-misses" => EventType(:cache, :L1_insn, :read, :miss),
+    "L1-icache-loads" => EventType(:cache, :L1_insn, :read, :access),
+    "dTLB-load-misses" => EventType(:cache, :TLB_data, :read, :miss),
+    "dTLB-loads" => EventType(:cache, :TLB_data, :read, :access),
+    "iTLB-load-misses" => EventType(:cache, :TLB_insn, :read, :miss),
+    "iTLB-loads" => EventType(:cache, :TLB_insn, :read, :access),
+)
+
+const EVENT_TO_NAME = Dict(event => name for (name, event) in NAME_TO_EVENT)
+
+function parse_pstats_options(opts)
+    # default events
+    events = parse_groups("
+        (cpu-cycles, stalled-cycles-frontend, stalled-cycles-backend),
+        (instructions, branch-instructions, branch-misses),
+        (task-clock, context-switches, cpu-migrations, page-faults)
+    ")
+    for opt in opts
+        if opt isa AbstractString
+            events = parse_groups(opt)
+        elseif opt isa Expr && opt.head == :(=)
+            key, val = opt.args
+            error("unknown key: $(key)")
+        else
+            error("unknown option: $(opt)")
+        end
+    end
+    return (events = events,)
+end
+
+# syntax: groups = (group ',')* group
+function parse_groups(str)
+    groups = Vector{EventType}[]
+    i = firstindex(str)
+    next = iterate(str, i)
+    while next !== nothing
+        i = skipws(str, i)
+        group, i = parse_group(str, i)
+        push!(groups, group)
+        i = skipws(str, i)
+        next = iterate(str, i)
+        if next === nothing
+            continue
+        end
+        c, i = next
+        if c == ','
+            # ok
+        else
+            error("unknown character: $(repr(c))")
+        end
+    end
+    return groups
+end
+
+# syntax: group = event | '(' (event ',')* event ')'
+function parse_group(str, i)
+    group = EventType[]
+    next = iterate(str, i)
+    if next === nothing
+        error("no events")
+    elseif next[1] == '('
+        # group
+        i = next[2]
+        while true
+            i = skipws(str, i)
+            event, i = parse_event(str, i)
+            push!(group, event)
+            i = skipws(str, i)
+            next = iterate(str, i)
+            if next === nothing
+                error("unpaired '('")
+            end
+            c, i = next
+            if c == ','
+                # ok
+            elseif c == ')'
+                break
+            else
+                error("unknown character: $(repr(c))")
+            end
+        end
+    else
+        # singleton group
+        i = skipws(str, i)
+        event, i = parse_event(str, i)
+        push!(group, event)
+    end
+    return group, i
+end
+
+# syntax: event = [A-Za-z0-9-]+
+function parse_event(str, i)
+    isok(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z' || '0' ≤ c ≤ '9' || c == '-'
+    start = i
+    next = iterate(str, start)
+    while next !== nothing && isok(next[1])
+        i = next[2]
+        next = iterate(str, i)
+    end
+    stop = prevind(str, i)
+    if start > stop
+        error("empty event name")
+    end
+    name = str[start:stop]
+    if !haskey(NAME_TO_EVENT, name)
+        error("unknown event name: $(name)")
+    end
+    return NAME_TO_EVENT[name], i
+end
+
+# skip whitespace if any
+function skipws(str, i)
+    @label head
+    next = iterate(str, i)
+    if next !== nothing && isspace(next[1])
+        i = next[2]
+        @goto head
+    end
+    return i
+end
+
+struct Stats
+    groups::Vector{Vector{Counter}}
+end
+
+function Stats(b::PerfBench)
+    groups = Vector{Counter}[]
+    for g in b.groups
+        values = Vector{UInt64}(undef, length(g)+1+2)
+        read!(g.leader_io, values)
+        #?Ref@assert(length(g) == values[1])
+        enabled, running = values[2], values[3]
+        push!(groups, [Counter(g.event_types[i], values[3+i], enabled, running) for i in 1:length(g)])
+    end
+    return Stats(groups)
+end
+
+function Base.haskey(stats::Stats, name::AbstractString)
+    event = NAME_TO_EVENT[name]
+    return any(counter.event == event for group in stats.groups for counter in group)
+end
+
+function Base.getindex(stats::Stats, name::AbstractString)
+    event = NAME_TO_EVENT[name]
+    for group in stats.groups, counter in group
+        if counter.event == event
+            return counter
+        end
+    end
+    throw(KeyError(name))
+end
+
+function Base.show(io::IO, stats::Stats)
+    w = 2 + 23 + 18
+    println(io, '━'^w)
+    for group in stats.groups
+        for i in 1:length(group)
+            # grouping character
+            if length(group) == 1
+                c = '╶'
+            elseif i == 1
+                c = '┌'
+            elseif i == length(group)
+                c = '└'
+            else
+                c = '│'
+            end
+            counter = group[i]
+            event = counter.event
+            name = EVENT_TO_NAME[event]
+            @printf io "%-2s%-23s" c name
+            if !isenabled(counter)
+                @printf(io, "%18s", "not enabled")
+            elseif !isrun(counter)
+                @printf(io, "%10s%7.1f%%", "NA", 0.0)
+            else
+                @printf(io, "%10.2e%7.1f%%", scaledcount(counter), fillrate(counter) * 100)
+            end
+            if isrun(counter)
+                # show a comment
+                if name == "cpu-cycles"
+                    @printf(io, "  # %4.1f cycles per ns", counter.value / counter.running)
+                elseif (name == "stalled-cycles-frontend" || name == "stalled-cycles-backend") && haskey(stats, "cpu-cycles")
+                    @printf(io, "  # %4.1f%% of cycles", scaledcount(counter) / scaledcount(stats["cpu-cycles"]) * 100)
+                elseif name == "instructions" && haskey(stats, "cpu-cycles")
+                    @printf(io, "  # %4.1f insns per cycle", scaledcount(counter) / scaledcount(stats["cpu-cycles"]))
+                elseif name == "branch-instructions" && haskey(stats, "instructions")
+                    @printf(io, "  # %4.1f%% of instructions", scaledcount(counter) / scaledcount(stats["instructions"]) * 100)
+                elseif name == "branch-misses" && haskey(stats, "branch-instructions")
+                    @printf(io, "  # %4.1f%% of branch instructions", scaledcount(counter)/ scaledcount(stats["branch-instructions"]) * 100)
+                elseif name == "cache-misses" && haskey(stats, "cache-references")
+                    @printf(io, "  # %4.1f%% of cache references", scaledcount(counter) / scaledcount(stats["cache-references"]) * 100)
+                elseif name == "L1-dcache-load-misses" && haskey(stats, "L1-dcache-loads")
+                    @printf(io, "  # %4.1f%% of loads", scaledcount(counter) / scaledcount(stats["L1-dcache-loads"]) * 100)
+                end
+            end
+            println(io)
+        end
+    end
+    print(io, '━'^w)
+end
+
+isenabled(counter::Counter) = counter.enabled > 0
+isrun(counter::Counter) = counter.running > 0
+fillrate(counter::Counter) = counter.running / counter.enabled
+scaledcount(counter::Counter) = counter.value * (counter.enabled / counter.running)
+
+"""
+    @pstats [options] expr
+
+Run `expr` and gather its performance statistics.
+"""
+macro pstats(args...)
+    if isempty(args)
+        error("@pstats requires at least one argument")
+    end
+    opts, expr = parse_pstats_options(args[1:end-1]), args[end]
+    quote
+        (function ()
+            bench = make_bench($(opts.events))
+            enable!(bench)
+            val = $(esc(expr))
+            disable!(bench)
+            # trick the compiler not to eliminate the code
+            (rand() < 0 ? val : Stats(bench))::Stats
+        end)()
+    end
+end
 
 end
