@@ -76,7 +76,7 @@ const EVENT_TYPES =
        (:stalled_cycles_backend, 8), # PERF_COUNT_HW_STALLED_CYCLES_BACKEND
        (:scaled_cycles, 9) # PERF_COUNT_HW_REF_CPU_CYCLES
        ]),
-     (:sw, 1, # PERF_TYPE_SOFTWARE
+     (:sw, PERF_TYPE_SOFTWARE,
       [(:cpu_clock, 0), # PERF_COUNT_SW_CPU_CLOCK
        (:task_clock, 1), # PEF_COUNT_SW_TASK_CLOCK
        (:page_faults, 2), # PERF_COUNT_SW_PAGE_FAULTS
@@ -414,8 +414,46 @@ const NAME_TO_EVENT = Dict(
     "iTLB-load-misses" => EventType(:cache, :TLB_insn, :read, :miss),
     "iTLB-loads" => EventType(:cache, :TLB_insn, :read, :access),
 )
-
 const EVENT_TO_NAME = Dict(event => name for (name, event) in NAME_TO_EVENT)
+
+function is_supported(event::EventType)
+    attr = perf_event_attr()
+    attr.typ = event.category
+    attr.size = sizeof(perf_event_attr)
+    attr.config = event.event
+    fd = perf_event_open(attr, 0, -1, -1, 0)
+    if fd ≥ 0
+        ret = ccall(:close, Cint, (Cint,), fd)
+        if ret != 0
+            @warn "failed to close file descriptor for some reason"
+        end
+        return true
+    end
+    return false
+end
+
+is_supported(name::AbstractString) = haskey(NAME_TO_EVENT, name) && is_supported(NAME_TO_EVENT[name])
+
+function list()
+    for t in [PERF_TYPE_HARDWARE, PERF_TYPE_SOFTWARE, PERF_TYPE_HW_CACHE]
+        events = collect(filter(x -> x[2].category == t, NAME_TO_EVENT))
+        sort!(events, by = x -> x[1])  # sort events by name
+        if t == PERF_TYPE_HARDWARE
+            println("hardware:")
+        elseif t == PERF_TYPE_SOFTWARE
+            println("software:")
+        elseif t == PERF_TYPE_HW_CACHE
+            println("cache:")
+        else
+            @assert false
+        end
+        for (name, event) in events
+            @printf "  %-25s%s" name (is_supported(event) ? "supported" : "not supported")
+            println()
+        end
+        t != PERF_TYPE_HW_CACHE && println()
+    end
+end
 
 function parse_pstats_options(opts)
     # default events
