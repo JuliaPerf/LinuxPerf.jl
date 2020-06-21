@@ -634,18 +634,25 @@ function Base.show(io::IO, stats::Stats)
                 # show a comment
                 if name == "cpu-cycles"
                     @printf(io, "  # %4.1f cycles per ns", counter.value / counter.running)
-                elseif (name == "stalled-cycles-frontend" || name == "stalled-cycles-backend") && haskey(stats, "cpu-cycles")
-                    @printf(io, "  # %4.1f%% of cycles", scaledcount(counter) / scaledcount(stats["cpu-cycles"]) * 100)
                 elseif name == "instructions" && haskey(stats, "cpu-cycles")
                     @printf(io, "  # %4.1f insns per cycle", scaledcount(counter) / scaledcount(stats["cpu-cycles"]))
-                elseif name == "branch-instructions" && haskey(stats, "instructions")
-                    @printf(io, "  # %4.1f%% of instructions", scaledcount(counter) / scaledcount(stats["instructions"]) * 100)
-                elseif name == "branch-misses" && haskey(stats, "branch-instructions")
-                    @printf(io, "  # %4.1f%% of branch instructions", scaledcount(counter)/ scaledcount(stats["branch-instructions"]) * 100)
-                elseif name == "cache-misses" && haskey(stats, "cache-references")
-                    @printf(io, "  # %4.1f%% of cache references", scaledcount(counter) / scaledcount(stats["cache-references"]) * 100)
-                elseif name == "L1-dcache-load-misses" && haskey(stats, "L1-dcache-loads")
-                    @printf(io, "  # %4.1f%% of loads", scaledcount(counter) / scaledcount(stats["L1-dcache-loads"]) * 100)
+                else
+                    for (num, den, label) in [
+                            ("stalled-cycles-frontend", "cpu-cycles", "cycles"),
+                            ("stalled-cycles-backend", "cpu-cycles", "cycles"),
+                            ("branch-instructions", "instructions", "instructions"),
+                            ("branch-misses", "branch-instructions", "branch instructions"),
+                            ("cache-misses", "cache-references", "cache references"),
+                            ("L1-dcache-load-misses", "L1-dcache-loads", "dcache loads"),
+                            ("L1-icache-load-misses", "L1-icache-loads", "icache loads"),
+                            ("dTLB-load-misses", "dTLB-loads", "dTLB loads"),
+                            ("iTLB-load-misses", "iTLB-loads", "iTLB loads"),
+                        ]
+                        if name == num && haskey(stats, den)
+                            @printf(io, "  # %4.1f%% of %s", scaledcount(counter) / scaledcount(stats[den]) * 100, label)
+                            break
+                        end
+                    end
                 end
             end
             println(io)
