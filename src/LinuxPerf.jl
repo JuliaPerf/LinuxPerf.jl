@@ -7,7 +7,7 @@ using Formatting
 export @measure, @measured, @pstats
 export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
 
-import Base: show, length, close
+import Base: show, length
 
 macro measure(expr, args...)
     esc(quote
@@ -331,6 +331,8 @@ end
 enable!(b::PerfBench) = foreach(enable!, b.groups)
 disable!(b::PerfBench) = foreach(disable!, b.groups)
 reset!(b::PerfBench) = foreach(reset!, b.groups)
+
+Base.close(b::PerfBench) = foreach(close, b.groups)
 
 function counters(b::PerfBench)
     c = Counter[]
@@ -725,7 +727,9 @@ macro pstats(args...)
             val = $(esc(expr))
             disable!(bench)
             # trick the compiler not to eliminate the code
-            (rand() < 0 ? val : Stats(bench))::Stats
+            stats = rand() < 0 ? val : Stats(bench)
+            close(bench)
+            return stats::Stats
         end)()
     end
 end
