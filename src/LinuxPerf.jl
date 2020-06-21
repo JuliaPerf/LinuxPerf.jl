@@ -366,13 +366,13 @@ const reasonable_defaults =
      [EventType(:cache, :L1_data, :write, :access),
       EventType(:cache, :L1_data, :write, :miss)]=#]
 
-function make_bench(x)
+function make_bench(x; kwargs...)
     groups = EventGroup[]
     for y in x
         if isa(y, EventType)
-            push!(groups, EventGroup([y]))
+            push!(groups, EventGroup([y]; kwargs...))
         else
-            push!(groups, EventGroup(y))
+            push!(groups, EventGroup(y; kwargs...))
         end
     end
     PerfBench(groups)
@@ -464,17 +464,22 @@ function parse_pstats_options(opts)
         (instructions, branch-instructions, branch-misses),
         (task-clock, context-switches, cpu-migrations, page-faults)
     ")
+    exclude_kernel = false
     for opt in opts
         if opt isa AbstractString
             events = parse_groups(opt)
         elseif opt isa Expr && opt.head == :(=)
             key, val = opt.args
-            error("unknown key: $(key)")
+            if key === :exclude_kernel
+                exclude_kernel = esc(val)
+            else
+                error("unknown key: $(key)")
+            end
         else
             error("unknown option: $(opt)")
         end
     end
-    return (events = events,)
+    return (events = events, exclude_kernel = exclude_kernel,)
 end
 
 # syntax: groups = (group ',')* group
@@ -682,7 +687,8 @@ may follow these columns after a hash (#) character.
 
 The macro can take some options. If a string object is passed, it is a
 comma-separated list of event names to measure. An event group can be
-indicated by a pair of parentheses.
+indicated by a pair of parentheses. If `exclude_kernel = true` is passed, the
+count excludes events that happen in kernel space (`false` by default).
 
 # Examples
 
@@ -722,7 +728,7 @@ macro pstats(args...)
     opts, expr = parse_pstats_options(args[1:end-1]), args[end]
     quote
         (function ()
-            bench = make_bench($(opts.events))
+            bench = make_bench($(opts.events), userspace_only = $(opts.exclude_kernel))
             enable!(bench)
             val = $(esc(expr))
             disable!(bench)
