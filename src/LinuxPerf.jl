@@ -666,6 +666,15 @@ isrun(counter::Counter) = counter.running > 0
 fillrate(counter::Counter) = counter.running / counter.enabled
 scaledcount(counter::Counter) = counter.value * (counter.enabled / counter.running)
 
+function checkstats(stats::Stats)
+    for group in stats.groups, counter in group
+        if !isrun(counter)
+            @warn "Some events are not measured"
+            return
+        end
+    end
+end
+
 """
     @pstats [options] expr
 
@@ -742,6 +751,7 @@ macro pstats(args...)
             # trick the compiler not to eliminate the code
             stats = rand() < 0 ? val : Stats(bench)
             close(bench)
+            checkstats(stats)
             return stats::Stats
         end)()
     end
