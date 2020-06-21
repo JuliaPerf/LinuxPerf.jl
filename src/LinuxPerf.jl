@@ -636,6 +636,21 @@ function Base.show(io::IO, stats::Stats)
                     @printf(io, "  # %4.1f cycles per ns", counter.value / counter.running)
                 elseif name == "instructions" && haskey(stats, "cpu-cycles")
                     @printf(io, "  # %4.1f insns per cycle", scaledcount(counter) / scaledcount(stats["cpu-cycles"]))
+                elseif name == "cpu-clock" || name == "task-clock"
+                    clk = float(scaledcount(counter))
+                    if clk ≥ 1e9
+                        clk /= 1e9
+                        unit = "s"
+                    elseif clk ≥ 1e6
+                        clk /= 1e6
+                        unit = "ms"
+                    elseif clk ≥ 1e3
+                        clk /= 1e3
+                        unit = "μs"
+                    else
+                        unit = "ns"
+                    end
+                    @printf(io, "  # %4.1f %s", clk, unit)
                 else
                     for (num, den, label) in [
                             ("stalled-cycles-frontend", "cpu-cycles", "cycles"),
