@@ -55,9 +55,16 @@ end
 
 perf_event_attr() = perf_event_attr(ntuple(x->0, fieldcount(perf_event_attr))...)
 
+const PERF_TYPE_HARDWARE = 0
+const PERF_TYPE_SOFTWARE = 1
+const PERF_TYPE_TRACEPOINT = 2
+const PERF_TYPE_HW_CACHE = 3
+const PERF_TYPE_RAW = 4
+const PERF_TYPE_BREAKPOINT = 3
+
 const EVENT_TYPES =
     [
-     (:hw, 0, # PERF_TYPE_HARDWARE
+     (:hw, PERF_TYPE_HARDWARE, # PERF_TYPE_HARDWARE
       [(:cycles, 0), # PERF_COUNT_HW_CPU_CYCLES
        (:instructions, 1), # PERF_COUNT_HW_INSTRUCTIONS
        (:cache_access, 2), # PERF_COUNT_HW_CACHE_REFERENCES
@@ -78,15 +85,16 @@ const EVENT_TYPES =
        ])
      ]
 
-# cache events have special encoding
-const PERF_TYPE_HW_CACHE = 3
+
+# cache events have special encoding, PERF_TYPE_HW_CACHE
 const CACHE_TYPES =
     [(:L1_data, 0),
      (:L1_insn, 1),
      (:LLC,   2),
      (:TLB_data, 3),
      (:TLB_insn, 4),
-     (:BPU, 5)]
+     (:BPU, 5),
+     (:NODE, 6)]
 const CACHE_OPS =
     [(:read, 0),
      (:write, 1),
@@ -194,7 +202,9 @@ mutable struct EventGroup
 
     function EventGroup(types::Vector{EventType};
                         warn_unsupported = true,
-                        userspace_only = true
+                        userspace_only = true,
+                        pinned = false,
+                        exclusive = false,
                         )
         my_types = EventType[]
         group = new(-1, Cint[], EventType[])
@@ -205,12 +215,24 @@ mutable struct EventGroup
             attr.size = sizeof(perf_event_attr)
             attr.config = evt_type.event
             attr.sample_period_or_freq = 0
-            if userspace_only
-                attr.flags = (1 << 5) # exclude kernel
-            end
+            attr.flags = 0
+            # first attribute becomes group leader
             if group.leader_fd == -1
                 attr.flags |= (1 << 0) # start disabled
             end
+            if pinned
+                attr.flags |= (1 << 2)
+            end
+            if exclusive
+                attr.flags |= (1 << 3)
+            end
+            # (1 << 4) exclude_user
+            if userspace_only
+                attr.flags |= (1 << 5) # exclude kernel
+            end
+            # (1 << 6) exclude hypervisor
+            # (1 << 7) exclude idle
+
             attr.read_format =
                 PERF_FORMAT_GROUP |
                 PERF_FORMAT_TOTAL_TIME_ENABLED |
@@ -269,8 +291,10 @@ reset!(g::EventGroup) = ioctl(g, PERF_EVENT_IOC_RESET)
 
 function Base.close(g::EventGroup)
     for fd in g.fds
+        fd == g.leader_fd && continue # close leader_fd last
         ccall(:close, Cint, (Cint,), fd)
     end
+    ccall(:close, Cint, (Cint,), g.leader_fd)
 end
 
 mutable struct PerfBench
