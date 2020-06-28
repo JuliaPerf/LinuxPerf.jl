@@ -903,14 +903,19 @@ macro pstats(args...)
             groups = set_default_spaces($(opts.events), $(opts.spaces))
             @debug dump_groups(groups)
             bench = make_bench(groups, userspace_only = false)
-            enable!(bench)
-            val = $(esc(expr))
-            disable!(bench)
-            # trick the compiler not to eliminate the code
-            stats = rand() < 0 ? val : Stats(bench)
-            close(bench)
-            checkstats(stats)
-            return stats::Stats
+            try
+                enable!(bench)
+                val = $(esc(expr))
+                disable!(bench)
+                # trick the compiler not to eliminate the code
+                stats = rand() < 0 ? val : Stats(bench)
+                checkstats(stats)
+                return stats::Stats
+            catch
+                rethrow()
+            finally
+                close(bench)
+            end
         end)()
     end
 end
