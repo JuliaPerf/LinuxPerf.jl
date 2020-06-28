@@ -652,7 +652,7 @@ function parse_modifiers(str, i)
         else
             error("unsupported modifier: $(repr(c))")
         end
-        next = iterate(next, i)
+        next = iterate(str, i)
     end
     return (u, k, h), i
 end
