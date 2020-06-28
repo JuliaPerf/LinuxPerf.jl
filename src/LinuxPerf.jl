@@ -457,11 +457,23 @@ const NAME_TO_EVENT = Dict(
 )
 const EVENT_TO_NAME = Dict(event => name for (name, event) in NAME_TO_EVENT)
 
-function is_supported(event::EventType)
+function is_supported(event::EventType; space::Symbol)
     attr = perf_event_attr()
     attr.typ = event.category
     attr.size = sizeof(perf_event_attr)
     attr.config = event.event
+    if space == :user
+        attr.flags |= (1 << 5)
+        attr.flags |= (1 << 6)
+    elseif space == :kernel
+        attr.flags |= (1 << 4)
+        attr.flags |= (1 << 6)
+    elseif space == :hypervisor
+        attr.flags |= (1 << 4)
+        attr.flags |= (1 << 5)
+    else
+        throw(ArgumentError("unknown space name: $(space)"))
+    end
     fd = perf_event_open(attr, 0, -1, -1, 0)
     if fd ≥ 0
         ret = ccall(:close, Cint, (Cint,), fd)
@@ -473,7 +485,7 @@ function is_supported(event::EventType)
     return false
 end
 
-is_supported(name::AbstractString) = haskey(NAME_TO_EVENT, name) && is_supported(NAME_TO_EVENT[name])
+is_supported(name::AbstractString; kwargs...) = haskey(NAME_TO_EVENT, name) && is_supported(NAME_TO_EVENT[name]; kwargs...)
 
 function list()
     for t in [PERF_TYPE_HARDWARE, PERF_TYPE_SOFTWARE, PERF_TYPE_HW_CACHE]
@@ -489,7 +501,22 @@ function list()
             @assert false
         end
         for (name, event) in events
-            @printf "  %-25s%s" name (is_supported(event) ? "supported" : "not supported")
+            spaces = String[]
+            if is_supported(event, space = :user)
+                push!(spaces, "user")
+            end
+            if is_supported(event, space = :kernel)
+                push!(spaces, "kernel")
+            end
+            if is_supported(event, space = :hypervisor)
+                push!(spaces, "hypervisor")
+            end
+            if isempty(spaces)
+                msg = "not supported"
+            else
+                msg = join(spaces, ", ")
+            end
+            @printf "  %-25s%s" name msg
             println()
         end
         t != PERF_TYPE_HW_CACHE && println()
@@ -504,7 +531,8 @@ function parse_pstats_options(opts)
         (task-clock, context-switches, cpu-migrations, page-faults)
     "))
     # default spaces
-    user = kernel = hypervisor = true
+    user = true
+    kernel = hypervisor = false
     for (i, opt) in enumerate(opts)
         if i == 1 && !(opt isa Expr && opt.head == :(=))
             events = :(parse_groups($(esc(opt))))
@@ -857,10 +885,15 @@ surrounded by a pair of parentheses. Modifiers can be added to confine
 measured events to specific space. Currently, three space modifiers are
 supported: user (`u`), kernel (`k`), and hypervisor (`h`) space. The
 modifiers follow an event name separated by a colon. For example,
-`cpu-cycles:u` ignores all CPU cycles except in user space. It is also
-possible to pass `user`, `kernel`, and `hypervisor` parameters (`true` by
-default) to the macro, which affect events without modifiers. For example,
-`kernel=false` excludes events happend in kernel space.
+`cpu-cycles:u` ignores all CPU cycles except in user space (which is the
+default). It is also possible to pass `user`, `kernel`, and `hypervisor`
+parameters to the macro, which affect events without modifiers. Only user
+space is activated by default (i.e., `user` is `true` but `kernel` and
+`hypervisor` are `false`). To measure kernel events, for example, add the `k`
+modifier to events you are interested in or pass `kernel=true` to the macro,
+which globally activates events in kernel space.
+
+For more details, see perf_event_open(2)'s manual page.
 
 # Examples
 
