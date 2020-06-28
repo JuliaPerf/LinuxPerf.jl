@@ -871,24 +871,24 @@ julia> sort(xs[1:9]);  # compile
 
 julia> @pstats sort(xs)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-┌ cpu-cycles               2.68e+08   51.0%  #  3.9 cycles per ns
-│ stalled-cycles-frontend  9.75e+06   51.0%  #  3.6% of cycles
-└ stalled-cycles-backend   2.00e+07   51.0%  #  7.5% of cycles
-┌ instructions             1.87e+08   49.0%  #  0.7 insns per cycle
-│ branch-instructions      3.82e+07   49.0%  # 20.4% of instructions
-└ branch-misses            8.51e+06   49.0%  # 22.3% of branch instructions
-┌ task-clock               6.90e+07  100.0%
-│ context-switches         6.00e+00  100.0%
+┌ cpu-cycles               2.60e+08   49.7%  #  3.4 cycles per ns
+│ stalled-cycles-frontend  1.09e+07   49.7%  #  4.2% of cycles
+└ stalled-cycles-backend   7.07e+06   49.7%  #  2.7% of cycles
+┌ instructions             1.96e+08   50.3%  #  0.8 insns per cycle
+│ branch-instructions      4.02e+07   50.3%  # 20.5% of instructions
+└ branch-misses            8.15e+06   50.3%  # 20.3% of branch instructions
+┌ task-clock               7.61e+07  100.0%  # 76.1 ms
+│ context-switches         7.00e+00  100.0%
 │ cpu-migrations           0.00e+00  100.0%
 └ page-faults              1.95e+03  100.0%
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 julia> @pstats "(cpu-cycles,instructions,branch-instructions,branch-misses),page-faults" sort(xs)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-┌ cpu-cycles               2.68e+08  100.0%  #  3.9 cycles per ns
-│ instructions             1.89e+08  100.0%  #  0.7 insns per cycle
-│ branch-instructions      3.80e+07  100.0%  # 20.1% of instructions
-└ branch-misses            8.23e+06  100.0%  # 21.7% of branch instructions
+┌ cpu-cycles               2.64e+08  100.0%  #  3.5 cycles per ns
+│ instructions             1.86e+08  100.0%  #  0.7 insns per cycle
+│ branch-instructions      3.74e+07  100.0%  # 20.1% of instructions
+└ branch-misses            8.21e+06  100.0%  # 21.9% of branch instructions
 ╶ page-faults              1.95e+03  100.0%
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
