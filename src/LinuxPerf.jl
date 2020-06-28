@@ -200,13 +200,23 @@ function EventType(cat::Symbol, cache::Symbol, op::Symbol, evt::Symbol)
                      cache_id | (op_id << 8) | (evt_id << 16))
 end
 
+const EXCLUDE_NONE       = UInt(0)
+const EXCLUDE_USER       = UInt(1) << 0
+const EXCLUDE_KERNEL     = UInt(1) << 1
+const EXCLUDE_HYPERVISOR = UInt(1) << 2
+
+struct EventTypeExt
+    event::EventType
+    exclude::UInt  # bit flags
+end
+
 mutable struct EventGroup
     leader_fd::Cint
     fds::Vector{Cint}
     event_types::Vector{EventType}
     leader_io::IOStream
 
-    function EventGroup(types::Vector{EventType};
+    function EventGroup(types::Vector{<:Union{EventType,EventTypeExt}};
                         warn_unsupported = true,
                         userspace_only = true,
                         pinned = false,
@@ -217,9 +227,14 @@ mutable struct EventGroup
 
         for (i, evt_type) in enumerate(types)
             attr = perf_event_attr()
-            attr.typ = evt_type.category
             attr.size = sizeof(perf_event_attr)
-            attr.config = evt_type.event
+            if evt_type isa EventTypeExt
+                attr.typ = evt_type.event.category
+                attr.config = evt_type.event.event
+            else
+                attr.typ = evt_type.category
+                attr.config = evt_type.event
+            end
             attr.sample_period_or_freq = 0
             attr.flags = 0
             # first attribute becomes group leader
@@ -238,6 +253,18 @@ mutable struct EventGroup
             end
             # (1 << 6) exclude hypervisor
             # (1 << 7) exclude idle
+
+            if evt_type isa EventTypeExt
+                if evt_type.exclude & EXCLUDE_USER != 0
+                    attr.flags |= (1 << 4)
+                end
+                if evt_type.exclude & EXCLUDE_KERNEL != 0
+                    attr.flags |= (1 << 5)
+                end
+                if evt_type.exclude & EXCLUDE_HYPERVISOR != 0
+                    attr.flags |= (1 << 6)
+                end
+            end
 
             attr.read_format =
                 PERF_FORMAT_GROUP |
@@ -259,7 +286,11 @@ mutable struct EventGroup
                     error("perf_event_open error : $(Libc.strerror(errno))")
                 end
             end
-            push!(group.event_types, evt_type)
+            if evt_type isa EventTypeExt
+                push!(group.event_types, evt_type.event)
+            else
+                push!(group.event_types, evt_type)
+            end
             push!(group.fds, fd)
             if group.leader_fd == -1
                 group.leader_fd = fd
@@ -380,7 +411,6 @@ end
 
 make_bench() = make_bench(reasonable_defaults)
 
-
 # Event names are taken from the perf command.
 const NAME_TO_EVENT = Dict(
     # hardware events
@@ -484,7 +514,7 @@ end
 
 # syntax: groups = (group ',')* group
 function parse_groups(str)
-    groups = Vector{EventType}[]
+    groups = Vector{EventTypeExt}[]
     i = firstindex(str)
     next = iterate(str, i)
     while next !== nothing
@@ -508,7 +538,7 @@ end
 
 # syntax: group = event | '(' (event ',')* event ')'
 function parse_group(str, i)
-    group = EventType[]
+    group = EventTypeExt[]
     next = iterate(str, i)
     if next === nothing
         error("no events")
@@ -542,12 +572,13 @@ function parse_group(str, i)
     return group, i
 end
 
-# syntax: event = [A-Za-z0-9-]+
+# syntax: event = [A-Za-z0-9-]+ (:[ukh]*)?
 function parse_event(str, i)
-    isok(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z' || '0' ≤ c ≤ '9' || c == '-'
+    # parse event name
+    isevchar(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z' || '0' ≤ c ≤ '9' || c == '-'
     start = i
     next = iterate(str, start)
-    while next !== nothing && isok(next[1])
+    while next !== nothing && isevchar(next[1])
         i = next[2]
         next = iterate(str, i)
     end
@@ -559,7 +590,33 @@ function parse_event(str, i)
     if !haskey(NAME_TO_EVENT, name)
         error("unknown event name: $(name)")
     end
-    return NAME_TO_EVENT[name], i
+    event = NAME_TO_EVENT[name]
+
+    # parse modifiers (if any)
+    ismodchar(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z'
+    u = k = h = true  # u: user, k: kernel, h: hypervisor
+    next = iterate(str, i)
+    if next !== nothing && next[1] == ':'
+        u = k = h = false  # exclude all
+        i = next[2]
+        next = iterate(str, i)
+        while next !== nothing && ismodchar(next[1])
+            c, i = next
+            if c ∉ ('u', 'k', 'h')
+                error("unsupported modifier: $(repr(c))")
+            end
+            c == 'u' && (u = true)
+            c == 'k' && (k = true)
+            c == 'h' && (h = true)
+            next = iterate(str, i)
+        end
+    end
+    exclude = EXCLUDE_NONE
+    u || (exclude |= EXCLUDE_USER)
+    k || (exclude |= EXCLUDE_KERNEL)
+    h || (exclude |= EXCLUDE_HYPERVISOR)
+
+    return EventTypeExt(event, exclude), i
 end
 
 # skip whitespace if any
