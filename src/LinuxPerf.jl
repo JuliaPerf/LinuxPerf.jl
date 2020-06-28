@@ -207,6 +207,7 @@ const EXCLUDE_HYPERVISOR = UInt(1) << 2
 
 struct EventTypeExt
     event::EventType
+    modified::Bool
     exclude::UInt  # bit flags
 end
 
@@ -489,19 +490,24 @@ end
 
 function parse_pstats_options(opts)
     # default events
-    events = parse_groups("
+    events = :(parse_groups("
         (cpu-cycles, stalled-cycles-frontend, stalled-cycles-backend),
         (instructions, branch-instructions, branch-misses),
         (task-clock, context-switches, cpu-migrations, page-faults)
-    ")
-    exclude_kernel = false
-    for opt in opts
-        if opt isa AbstractString
-            events = parse_groups(opt)
+    "))
+    # default spaces
+    user = kernel = hypervisor = true
+    for (i, opt) in enumerate(opts)
+        if i == 1 && !(opt isa Expr && opt.head == :(=))
+            events = :(parse_groups($(esc(opt))))
         elseif opt isa Expr && opt.head == :(=)
             key, val = opt.args
-            if key === :exclude_kernel
-                exclude_kernel = esc(val)
+            if key == :user
+                user = esc(val)
+            elseif key == :kernel
+                kernel = esc(val)
+            elseif key == :hypervisor
+                hypervisor = esc(val)
             else
                 error("unknown key: $(key)")
             end
@@ -509,7 +515,7 @@ function parse_pstats_options(opts)
             error("unknown option: $(opt)")
         end
     end
-    return (events = events, exclude_kernel = exclude_kernel,)
+    return (events = events, spaces = :($(user), $(kernel), $(hypervisor)), )
 end
 
 # syntax: groups = (group ',')* group
@@ -594,9 +600,11 @@ function parse_event(str, i)
 
     # parse modifiers (if any)
     ismodchar(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z'
+    modified = false
     u = k = h = true  # u: user, k: kernel, h: hypervisor
     next = iterate(str, i)
     if next !== nothing && next[1] == ':'
+        modified = true
         u = k = h = false  # exclude all
         i = next[2]
         next = iterate(str, i)
@@ -616,7 +624,7 @@ function parse_event(str, i)
     k || (exclude |= EXCLUDE_KERNEL)
     h || (exclude |= EXCLUDE_HYPERVISOR)
 
-    return EventTypeExt(event, exclude), i
+    return EventTypeExt(event, modified, exclude), i
 end
 
 # skip whitespace if any
@@ -747,6 +755,21 @@ function checkstats(stats::Stats)
     end
 end
 
+function set_default_spaces(groups, (u, k, h))
+    map(groups) do group
+        map(group) do event
+            if event.modified
+                return event
+            end
+            exclude = EXCLUDE_NONE
+            u || (exclude |= EXCLUDE_USER)
+            k || (exclude |= EXCLUDE_KERNEL)
+            h || (exclude |= EXCLUDE_HYPERVISOR)
+            return EventTypeExt(event.event, event.modified, exclude)
+        end
+    end
+end
+
 """
     @pstats [options] expr
 
@@ -774,9 +797,15 @@ may follow these columns after a hash (#) character.
 4. The running rate is the ratio of the time of running and enabled.
 
 The macro can take some options. If a string object is passed, it is a
-comma-separated list of event names to measure. An event group can be
-indicated by a pair of parentheses. If `exclude_kernel = true` is passed, the
-count excludes events that happen in kernel space (`false` by default).
+comma-separated list of event names to measure. Modifiers can be added to
+confine measured events to specific space. Currently, three space modifiers
+are supported: user (`u`), kernel (`k`), and hypervisor (`h`) space. The
+modifiers follows an event name separated by a comma. For example,
+`cpu-cycles:u` ignores all CPU cycles except in user space. An event group
+can be indicated by a pair of parentheses. It is also possible to pass
+`user`, `kernel`, and `hypervisor` parameters (`true` by default) to the
+macro, which affect events without modifiers. For example, `kernel=false`
+excludes events happend in kernel space.
 
 # Examples
 
@@ -816,7 +845,8 @@ macro pstats(args...)
     opts, expr = parse_pstats_options(args[1:end-1]), args[end]
     quote
         (function ()
-            bench = make_bench($(opts.events), userspace_only = $(opts.exclude_kernel))
+            groups = set_default_spaces($(opts.events), $(opts.spaces))
+            bench = make_bench(groups, userspace_only = false)
             enable!(bench)
             val = $(esc(expr))
             disable!(bench)
