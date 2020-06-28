@@ -205,6 +205,14 @@ const EXCLUDE_USER       = UInt(1) << 0
 const EXCLUDE_KERNEL     = UInt(1) << 1
 const EXCLUDE_HYPERVISOR = UInt(1) << 2
 
+function exclude_flags(u, k, h)
+    exclude = EXCLUDE_NONE
+    u || (exclude |= EXCLUDE_USER)
+    k || (exclude |= EXCLUDE_KERNEL)
+    h || (exclude |= EXCLUDE_HYPERVISOR)
+    return exclude
+end
+
 struct EventTypeExt
     event::EventType
     modified::Bool
@@ -542,7 +550,7 @@ function parse_groups(str)
     return groups
 end
 
-# syntax: group = event | '(' (event ',')* event ')'
+# syntax: group = event | '(' (event ',')* event ')' modifiers?
 function parse_group(str, i)
     group = EventTypeExt[]
     next = iterate(str, i)
@@ -569,6 +577,18 @@ function parse_group(str, i)
                 error("unknown character: $(repr(c))")
             end
         end
+        i = skipws(str, i)
+
+        # parse group-level modifiers (if any)
+        next = iterate(str, i)
+        if next !== nothing && next[1] == ':'
+            (u, k, h), i = parse_modifiers(str, i)
+            group = map(group) do event
+                event.modified && return event
+                exclude = exclude_flags(u, k, h)
+                return EventTypeExt(event.event, true, exclude)
+            end
+        end
     else
         # singleton group
         i = skipws(str, i)
@@ -578,7 +598,7 @@ function parse_group(str, i)
     return group, i
 end
 
-# syntax: event = [A-Za-z0-9-]+ (:[ukh]*)?
+# syntax: event = [A-Za-z0-9-]+ modifiers?
 function parse_event(str, i)
     # parse event name
     isevchar(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z' || '0' ≤ c ≤ '9' || c == '-'
@@ -598,33 +618,43 @@ function parse_event(str, i)
     end
     event = NAME_TO_EVENT[name]
 
-    # parse modifiers (if any)
-    ismodchar(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z'
+    # parse event-level modifiers (if any)
     modified = false
-    u = k = h = true  # u: user, k: kernel, h: hypervisor
+    exclude = EXCLUDE_NONE
+    i = skipws(str, i)
     next = iterate(str, i)
     if next !== nothing && next[1] == ':'
+        (u, k, h), i = parse_modifiers(str, i)
         modified = true
-        u = k = h = false  # exclude all
-        i = next[2]
-        next = iterate(str, i)
-        while next !== nothing && ismodchar(next[1])
-            c, i = next
-            if c ∉ ('u', 'k', 'h')
-                error("unsupported modifier: $(repr(c))")
-            end
-            c == 'u' && (u = true)
-            c == 'k' && (k = true)
-            c == 'h' && (h = true)
-            next = iterate(str, i)
-        end
+        exclude = exclude_flags(u, k, h)
     end
-    exclude = EXCLUDE_NONE
-    u || (exclude |= EXCLUDE_USER)
-    k || (exclude |= EXCLUDE_KERNEL)
-    h || (exclude |= EXCLUDE_HYPERVISOR)
 
     return EventTypeExt(event, modified, exclude), i
+end
+
+# syntax: modifiers = ':' [ukh]*
+function parse_modifiers(str, i)
+    next = iterate(str, i)
+    @assert next[1] == ':'
+    ismodchar(c) = 'A' ≤ c ≤ 'Z' || 'a' ≤ c ≤ 'z'
+    # u: user, k: kernel, h: hypervisor
+    u = k = h = false  # exclude all
+    i = skipws(str, next[2])
+    next = iterate(str, i)
+    while next !== nothing && ismodchar(next[1])
+        c, i = next
+        if c == 'u'
+            u = true
+        elseif c == 'k'
+            k = true
+        elseif c == 'h'
+            h = true
+        else
+            error("unsupported modifier: $(repr(c))")
+        end
+        next = iterate(next, i)
+    end
+    return (u, k, h), i
 end
 
 # skip whitespace if any
