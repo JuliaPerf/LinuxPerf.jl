@@ -770,6 +770,31 @@ function set_default_spaces(groups, (u, k, h))
     end
 end
 
+# for debug
+function dump_groups(groups)
+    buf = IOBuffer()
+    println(buf, "Event groups")
+    for (i, group) in enumerate(groups)
+        println(buf, "group #$(i)")
+        for (j, event) in enumerate(group)
+            if j < length(group)
+                print(buf, "  ├─ ")
+            else
+                print(buf, "  └─ ")
+            end
+            print(buf, event.event)
+            event.modified && print(buf, " → modified")
+            exclude = event.exclude
+            exclude != 0 && print(buf, ", exclude ")
+            exclude & EXCLUDE_USER       != 0 && print(buf, 'u')
+            exclude & EXCLUDE_KERNEL     != 0 && print(buf, 'k')
+            exclude & EXCLUDE_HYPERVISOR != 0 && print(buf, 'h')
+            println(buf)
+        end
+    end
+    String(take!(buf))
+end
+
 """
     @pstats [options] expr
 
@@ -846,6 +871,7 @@ macro pstats(args...)
     quote
         (function ()
             groups = set_default_spaces($(opts.events), $(opts.spaces))
+            @debug dump_groups(groups)
             bench = make_bench(groups, userspace_only = false)
             enable!(bench)
             val = $(esc(expr))
