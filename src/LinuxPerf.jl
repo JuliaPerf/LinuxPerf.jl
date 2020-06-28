@@ -822,15 +822,15 @@ may follow these columns after a hash (#) character.
 4. The running rate is the ratio of the time of running and enabled.
 
 The macro can take some options. If a string object is passed, it is a
-comma-separated list of event names to measure. Modifiers can be added to
-confine measured events to specific space. Currently, three space modifiers
-are supported: user (`u`), kernel (`k`), and hypervisor (`h`) space. The
-modifiers follows an event name separated by a comma. For example,
-`cpu-cycles:u` ignores all CPU cycles except in user space. An event group
-can be indicated by a pair of parentheses. It is also possible to pass
-`user`, `kernel`, and `hypervisor` parameters (`true` by default) to the
-macro, which affect events without modifiers. For example, `kernel=false`
-excludes events happend in kernel space.
+comma-separated list of event names to measure. A group of events is
+surrounded by a pair of parentheses. Modifiers can be added to confine
+measured events to specific space. Currently, three space modifiers are
+supported: user (`u`), kernel (`k`), and hypervisor (`h`) space. The
+modifiers follow an event name separated by a colon. For example,
+`cpu-cycles:u` ignores all CPU cycles except in user space. It is also
+possible to pass `user`, `kernel`, and `hypervisor` parameters (`true` by
+default) to the macro, which affect events without modifiers. For example,
+`kernel=false` excludes events happend in kernel space.
 
 # Examples
 
