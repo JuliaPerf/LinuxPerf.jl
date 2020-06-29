@@ -230,6 +230,7 @@ mutable struct EventGroup
                         userspace_only = true,
                         pinned = false,
                         exclusive = false,
+                        pid = Cint(0),
                         )
         my_types = EventType[]
         group = new(-1, Cint[], EventType[])
@@ -280,7 +281,7 @@ mutable struct EventGroup
                 PERF_FORMAT_TOTAL_TIME_ENABLED |
                 PERF_FORMAT_TOTAL_TIME_RUNNING
 
-            fd = perf_event_open(attr, 0, -1, group.leader_fd, 0)
+            fd = perf_event_open(attr, pid, -1, group.leader_fd, 0)
             if fd < 0
                 errno = Libc.errno()
                 if errno in (Libc.EINVAL,Libc.ENOENT)
@@ -344,6 +345,7 @@ function Base.close(g::EventGroup)
 end
 
 mutable struct PerfBench
+    pid::Cint
     groups::Vector{EventGroup}
 end
 
@@ -406,19 +408,39 @@ const reasonable_defaults =
      [EventType(:cache, :L1_data, :write, :access),
       EventType(:cache, :L1_data, :write, :miss)]=#]
 
-function make_bench(x; kwargs...)
+function make_bench(x)
     groups = EventGroup[]
     for y in x
         if isa(y, EventType)
-            push!(groups, EventGroup([y]; kwargs...))
+            push!(groups, EventGroup([y]))
         else
-            push!(groups, EventGroup(y; kwargs...))
+            push!(groups, EventGroup(y))
         end
     end
-    PerfBench(groups)
+    PerfBench(0, groups)
 end
 
 make_bench() = make_bench(reasonable_defaults)
+
+struct PerfBenchThreaded
+    data::Vector{PerfBench}
+end
+
+enable!(b::PerfBenchThreaded) = foreach(enable!, b.data)
+disable!(b::PerfBenchThreaded) = foreach(disable!, b.data)
+reset!(b::PerfBenchThreaded) = foreach(reset!, b.data)
+
+Base.close(b::PerfBenchThreaded) = foreach(close, b.data)
+
+function make_bench_threaded(groups; threads = true)
+    data = PerfBench[]
+    for tid in (threads ? alltids() : zero(getpid()))
+        push!(data, PerfBench(tid, [EventGroup(g, pid = tid, userspace_only = false) for g in groups]))
+    end
+    return PerfBenchThreaded(data)
+end
+
+alltids(pid = getpid()) = parse.(typeof(pid), readdir("/proc/$(pid)/task"))
 
 # Event names are taken from the perf command.
 const NAME_TO_EVENT = Dict(
@@ -533,17 +555,22 @@ function parse_pstats_options(opts)
     # default spaces
     user = true
     kernel = hypervisor = false
+    # default threads
+    threads = true
     for (i, opt) in enumerate(opts)
         if i == 1 && !(opt isa Expr && opt.head == :(=))
             events = :(parse_groups($(esc(opt))))
         elseif opt isa Expr && opt.head == :(=)
             key, val = opt.args
+            val = esc(val)
             if key == :user
-                user = esc(val)
+                user = val
             elseif key == :kernel
-                kernel = esc(val)
+                kernel = val
             elseif key == :hypervisor
-                hypervisor = esc(val)
+                hypervisor = val
+            elseif key == :threads
+                threads = val
             else
                 error("unknown key: $(key)")
             end
@@ -551,7 +578,7 @@ function parse_pstats_options(opts)
             error("unknown option: $(opt)")
         end
     end
-    return (events = events, spaces = :($(user), $(kernel), $(hypervisor)), )
+    return (events = events, spaces = :($(user), $(kernel), $(hypervisor)), threads = threads,)
 end
 
 # syntax: groups = (group ',')* group
@@ -696,11 +723,12 @@ function skipws(str, i)
     return i
 end
 
-struct Stats
+struct ThreadStats
+    pid::Cint
     groups::Vector{Vector{Counter}}
 end
 
-function Stats(b::PerfBench)
+function ThreadStats(b::PerfBench)
     groups = Vector{Counter}[]
     for g in b.groups
         values = Vector{UInt64}(undef, length(g)+1+2)
@@ -709,15 +737,15 @@ function Stats(b::PerfBench)
         enabled, running = values[2], values[3]
         push!(groups, [Counter(g.event_types[i], values[3+i], enabled, running) for i in 1:length(g)])
     end
-    return Stats(groups)
+    return ThreadStats(b.pid, groups)
 end
 
-function Base.haskey(stats::Stats, name::AbstractString)
+function Base.haskey(stats::ThreadStats, name::AbstractString)
     event = NAME_TO_EVENT[name]
     return any(counter.event == event for group in stats.groups for counter in group)
 end
 
-function Base.getindex(stats::Stats, name::AbstractString)
+function Base.getindex(stats::ThreadStats, name::AbstractString)
     event = NAME_TO_EVENT[name]
     for group in stats.groups, counter in group
         if counter.event == event
@@ -727,10 +755,96 @@ function Base.getindex(stats::Stats, name::AbstractString)
     throw(KeyError(name))
 end
 
-function Base.show(io::IO, stats::Stats)
-    w = 2 + 23 + 18
-    println(io, '━'^w)
-    for group in stats.groups
+function Base.show(io::IO, stats::ThreadStats)
+    println(io, stats.pid)
+    printcounts(io, stats.groups)
+end
+
+isenabled(counter::Counter) = counter.enabled > 0
+isrun(counter::Counter) = counter.running > 0
+fillrate(counter::Counter) = counter.running / counter.enabled
+scaledcount(counter::Counter) = counter.value * (counter.enabled / counter.running)
+
+struct Stats
+    threads::Vector{ThreadStats}
+end
+
+Stats(b::PerfBenchThreaded) = Stats(map(ThreadStats, b.data))
+
+Base.show(io::IO, stats::Stats) = printsummary(io, stats)
+
+printsummary(stats::Stats; kwargs...) = printsummary(stdout, stats; kwargs...)
+
+function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::Bool = true)
+    printsep(io, '━')
+    println(io)
+    if isempty(stats.threads)
+        print(io, "no threads")
+        return
+    end
+
+    # aggregate all counts
+    n_aggregated = 0
+    counts = deepcopy(stats.threads[1].groups)
+    for i in 2:length(stats.threads)
+        t = stats.threads[i]
+        if skipdisabled && !any(isenabled, c for g in t.groups for c in g)
+            continue
+        end
+        if expand
+            println(io, "TID = ", t.pid)
+            printcounts(io, t.groups)
+            printsep(io, '┄')
+            #printsep(io, '─')
+            println(io)
+        end
+        for (j, g) in enumerate(t.groups)
+            for (k, c) in enumerate(g)
+                c′ = counts[j][k]
+                @assert c′.event == c.event
+                counts[j][k] = Counter(
+                    c.event,
+                    c.value   + c′.value,
+                    c.enabled + c′.enabled,
+                    c.running + c′.running
+                )
+            end
+        end
+        n_aggregated += 1
+    end
+
+    for g in counts, c in g
+        if !isrun(c)
+            @warn "Some events are not measured"
+            return
+        end
+    end
+
+    if expand
+        println(io, "Aggregated")
+    end
+    printcounts(io, counts)
+    if n_aggregated > 1
+        println(io, lpad("(aggregated from $(n_aggregated) threads)", TABLE_WIDTH))
+    end
+    printsep(io, '━')
+end
+
+const TABLE_WIDTH = 2 + 23 + 18
+printsep(io::IO, c::Char) = print(io, c^TABLE_WIDTH)
+
+function printcounts(io::IO, groups::Vector{Vector{Counter}})
+    for group in groups
+        function findcount(name)
+            event = NAME_TO_EVENT[name]
+            for c in group
+                c.event == event && return c
+            end
+            for g in groups, c in g
+                c.event == event && return c
+            end
+            return nothing
+        end
         for i in 1:length(group)
             # grouping character
             if length(group) == 1
@@ -757,8 +871,8 @@ function Base.show(io::IO, stats::Stats)
                 # show a comment
                 if name == "cpu-cycles"
                     @printf(io, "  # %4.1f cycles per ns", counter.value / counter.running)
-                elseif name == "instructions" && haskey(stats, "cpu-cycles")
-                    @printf(io, "  # %4.1f insns per cycle", scaledcount(counter) / scaledcount(stats["cpu-cycles"]))
+                elseif name == "instructions" && (cycles = findcount("cpu-cycles")) !== nothing
+                    @printf(io, "  # %4.1f insns per cycle", scaledcount(counter) / scaledcount(cycles))
                 elseif name == "cpu-clock" || name == "task-clock"
                     clk = float(scaledcount(counter))
                     if clk ≥ 1e9
@@ -786,29 +900,14 @@ function Base.show(io::IO, stats::Stats)
                             ("dTLB-load-misses", "dTLB-loads", "dTLB loads"),
                             ("iTLB-load-misses", "iTLB-loads", "iTLB loads"),
                         ]
-                        if name == num && haskey(stats, den)
-                            @printf(io, "  # %4.1f%% of %s", scaledcount(counter) / scaledcount(stats[den]) * 100, label)
+                        if name == num && (d = findcount(den)) !== nothing
+                            @printf(io, "  # %4.1f%% of %s", scaledcount(counter) / scaledcount(d) * 100, label)
                             break
                         end
                     end
                 end
             end
             println(io)
-        end
-    end
-    print(io, '━'^w)
-end
-
-isenabled(counter::Counter) = counter.enabled > 0
-isrun(counter::Counter) = counter.running > 0
-fillrate(counter::Counter) = counter.running / counter.enabled
-scaledcount(counter::Counter) = counter.value * (counter.enabled / counter.running)
-
-function checkstats(stats::Stats)
-    for group in stats.groups, counter in group
-        if !isrun(counter)
-            @warn "Some events are not measured"
-            return
         end
     end
 end
@@ -893,6 +992,10 @@ space is activated by default (i.e., `user` is `true` but `kernel` and
 modifier to events you are interested in or pass `kernel=true` to the macro,
 which globally activates events in kernel space.
 
+All threads are measured and event counts are aggregated by default. Passing
+`threads=false` to the macro disables this feature and only measures events
+that occurred in the current thread invoking the macro.
+
 For more details, see perf_event_open(2)'s manual page.
 
 # Examples
@@ -935,14 +1038,13 @@ macro pstats(args...)
         (function ()
             groups = set_default_spaces($(opts.events), $(opts.spaces))
             @debug dump_groups(groups)
-            bench = make_bench(groups, userspace_only = false)
+            bench = make_bench_threaded(groups, threads = $(opts.threads))
             try
                 enable!(bench)
                 val = $(esc(expr))
                 disable!(bench)
                 # trick the compiler not to eliminate the code
                 stats = rand() < 0 ? val : Stats(bench)
-                checkstats(stats)
                 return stats::Stats
             catch
                 rethrow()
