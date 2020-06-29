@@ -816,7 +816,7 @@ function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::
     for g in counts, c in g
         if !isrun(c)
             @warn "Some events are not measured"
-            return
+            break
         end
     end
 
