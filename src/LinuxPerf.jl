@@ -757,7 +757,7 @@ end
 
 function Base.show(io::IO, stats::ThreadStats)
     println(io, stats.pid)
-    printcounts(io, stats.groups)
+    printcounters(io, stats.groups)
 end
 
 isenabled(counter::Counter) = counter.enabled > 0
@@ -785,24 +785,23 @@ function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::
 
     # aggregate all counts
     n_aggregated = 0
-    counts = deepcopy(stats.threads[1].groups)
-    for i in 2:length(stats.threads)
+    counters = [[Counter(c.event, 0, 0, 0) for c in g] for g in stats.threads[1].groups]
+    for i in 1:length(stats.threads)
         t = stats.threads[i]
         if skipdisabled && !any(isenabled, c for g in t.groups for c in g)
             continue
         end
         if expand
-            println(io, "TID = ", t.pid)
-            printcounts(io, t.groups)
+            println(io, "TID = ", t.pid)  # label
+            printcounters(io, t.groups)
             printsep(io, '┄')
-            #printsep(io, '─')
             println(io)
         end
         for (j, g) in enumerate(t.groups)
             for (k, c) in enumerate(g)
-                c′ = counts[j][k]
+                c′ = counters[j][k]
                 @assert c′.event == c.event
-                counts[j][k] = Counter(
+                counters[j][k] = Counter(
                     c.event,
                     c.value   + c′.value,
                     c.enabled + c′.enabled,
@@ -813,17 +812,15 @@ function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::
         n_aggregated += 1
     end
 
-    for g in counts, c in g
+    for g in counters, c in g
         if !isrun(c)
             @warn "Some events are not measured"
             break
         end
     end
 
-    if expand
-        println(io, "Aggregated")
-    end
-    printcounts(io, counts)
+    expand && n_aggregated > 1 && println(io, "Aggregated")  # label
+    printcounters(io, counters)
     if n_aggregated > 1
         println(io, lpad("(aggregated from $(n_aggregated) threads)", TABLE_WIDTH))
     end
@@ -833,7 +830,7 @@ end
 const TABLE_WIDTH = 2 + 23 + 18
 printsep(io::IO, c::Char) = print(io, c^TABLE_WIDTH)
 
-function printcounts(io::IO, groups::Vector{Vector{Counter}})
+function printcounters(io::IO, groups::Vector{Vector{Counter}})
     for group in groups
         function findcount(name)
             event = NAME_TO_EVENT[name]
