@@ -775,7 +775,16 @@ Base.show(io::IO, stats::Stats) = printsummary(io, stats)
 
 printsummary(stats::Stats; kwargs...) = printsummary(stdout, stats; kwargs...)
 
-function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::Bool = true)
+"""
+    printsummary([io,] stats::Stats; expandthreads = false, skipinactive = true)
+
+Print summary of event statistics.
+
+If `expandthreads` is `true`, the statistics of each thread are printed with
+its thread ID (TID). If `skipinactive` is `true`, the statistics from
+unmeasured (inactive) threads are ignored.
+"""
+function printsummary(io::IO, stats::Stats; expandthreads::Bool = false, skipinactive::Bool = true)
     printsep(io, '━')
     println(io)
     if isempty(stats.threads)
@@ -786,13 +795,13 @@ function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::
     # aggregate all counts
     n_aggregated = 0
     counters = [[Counter(c.event, 0, 0, 0) for c in g] for g in stats.threads[1].groups]
-    for i in 1:length(stats.threads)
-        t = stats.threads[i]
-        if skipdisabled && !any(isenabled, c for g in t.groups for c in g)
+    for t in stats.threads
+        if skipinactive && !any(isenabled, c for g in t.groups for c in g)
             continue
         end
-        if expand
-            println(io, "TID = ", t.pid)  # label
+        n_aggregated += 1
+        if expandthreads
+            println(io, "Thread #$(n_aggregated) (TID = $(t.pid))")  # label
             printcounters(io, t.groups)
             printsep(io, '┄')
             println(io)
@@ -809,7 +818,6 @@ function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::
                 )
             end
         end
-        n_aggregated += 1
     end
 
     for g in counters, c in g
@@ -819,10 +827,10 @@ function printsummary(io::IO, stats::Stats; expand::Bool = false, skipdisabled::
         end
     end
 
-    expand && n_aggregated > 1 && println(io, "Aggregated")  # label
+    expandthreads && n_aggregated > 1 && println(io, "Aggregated")  # label
     printcounters(io, counters)
     if n_aggregated > 1
-        println(io, lpad("(aggregated from $(n_aggregated) threads)", TABLE_WIDTH))
+        println(io, lpad("aggregated from $(n_aggregated) threads", TABLE_WIDTH))
     end
     printsep(io, '━')
 end
@@ -834,26 +842,21 @@ function printcounters(io::IO, groups::Vector{Vector{Counter}})
     for group in groups
         function findcount(name)
             event = NAME_TO_EVENT[name]
+            # try to find within the same group
             for c in group
                 c.event == event && return c
             end
+            # fall back to other groups
             for g in groups, c in g
                 c.event == event && return c
             end
             return nothing
         end
-        for i in 1:length(group)
+        for (i, counter) in enumerate(group)
             # grouping character
-            if length(group) == 1
-                c = '╶'
-            elseif i == 1
-                c = '┌'
-            elseif i == length(group)
-                c = '└'
-            else
-                c = '│'
-            end
-            counter = group[i]
+            c = length(group) == 1 ? '╶' :
+                i == 1             ? '┌' :
+                i == length(group) ? '└' : '│'
             event = counter.event
             name = EVENT_TO_NAME[event]
             @printf io "%-2s%-23s" c name
