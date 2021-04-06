@@ -1,5 +1,8 @@
 # LinuxPerf.jl -- Julia wrapper for Linux's perf
 
+[![Build Status](https://github.com/JuliaPerf/LinuxPerf.jl/workflows/CI/badge.svg)](https://github.com/JuliaPerf/LinuxPerf.jl/actions)
+[![Coverage](https://codecov.io/gh/JuliaPerf/LinuxPerf.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaPerf/LinuxPerf.jl)
+
 the kernel multiplexes event counter that requires limited hardware resources so some counters are only active for a fraction of the running time (% on the right).
 
 if you need to compare two quantities you must put them in the same event group so they are always scheduled at the same time (or not at all).
