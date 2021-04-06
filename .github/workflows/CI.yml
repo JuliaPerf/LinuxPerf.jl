@@ -19,6 +19,8 @@ jobs:
           - x64
     steps:
       - uses: actions/checkout@v2
+      - name: Set paranoia
+        run: sudo sysctl -w kernel.perf_event_paranoid=0
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
