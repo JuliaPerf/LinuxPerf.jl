@@ -9,5 +9,5 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 Formatting = "0.4"
-PrettyTables = "0.9"
+PrettyTables = "0.9, 1"
 julia = "1"
