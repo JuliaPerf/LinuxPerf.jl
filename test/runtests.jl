@@ -77,4 +77,25 @@ end
     @test parse_groups("(cpu-cycles,instructions)  :  u  ") == parse_groups("(cpu-cycles,instructions):u")
 end
 
+
+@testset "@pstats" begin
+    n = 10^3
+    a = randn(n)
+    b = randn(n)
+    c = randn(n)
+    dest = zero(a)
+
+    function foo!(dest, a, b, c)
+        @. dest = a + b * c
+        sum(dest)
+    end
+
+    # Simple smoke tests
+    @test_nowarn LinuxPerf.list()
+    @pstats foo!(dest, a, b, c)
+
+    @pstats "cpu-cycles,(instructions,branch-instructions,branch-misses),(task-clock,context-switches,cpu-migrations,page-faults),(L1-dcache-load-misses,L1-dcache-loads,L1-icache-load-misses),(dTLB-load-misses,dTLB-loads)" foo!(dest, a, b, c)
+end
+
+
 end
