@@ -1,6 +1,6 @@
 name = "LinuxPerf"
 uuid = "b4c46c6c-4fb0-484d-a11a-41bc3392d094"
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 Formatting = "59287772-0a20-5a39-b81b-1366585eb4c0"
