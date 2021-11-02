@@ -5,7 +5,7 @@ steps:
           version: "1.6"
       - JuliaCI/julia-test#v1:
     agents:
-      queue: "julia"
+      queue: "juliaecosystem"
       sandbox.jl: "true"
       os: "linux"
     timeout_in_minutes: 60
