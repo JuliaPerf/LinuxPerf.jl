@@ -6,7 +6,7 @@ steps:
     commands:
       - julia --project=. -e 'using Pkg; Pkg.test()'
     agents:
-      queue: "julia"
+      queue: "juliacpu"
       sandbox.jl: "true"
       os: "linux"
     timeout_in_minutes: 60
