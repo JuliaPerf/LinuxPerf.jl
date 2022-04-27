@@ -63,7 +63,7 @@ julia> mt = MersenneTwister(1234);
 
 julia> @pstats rand(mt, 1_000_000);  # compile
 
-julia> @pstats rand(mt, 1_000_000)
+julia> @pstats rand(mt, 1_000_000)  # default events
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ┌ cpu-cycles               2.88e+06   58.1%  #  1.2 cycles per ns
 │ stalled-cycles-frontend  9.50e+03   58.1%  #  0.3% of cycles
@@ -75,6 +75,15 @@ julia> @pstats rand(mt, 1_000_000)
 │ context-switches         0.00e+00  100.0%
 │ cpu-migrations           0.00e+00  100.0%
 └ page-faults              1.95e+03  100.0%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+julia> insn = "(instructions,branch-instructions,branch-misses)"
+
+julia> @pstats insn rand(mt, 1_000_000)  # specific events
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ instructions             1.05e+07  100.0%
+│ branch-instructions      5.03e+05  100.0%  #  4.8% of insns
+└ branch-misses            2.01e+03  100.0%  #  0.4% of branch insns
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
