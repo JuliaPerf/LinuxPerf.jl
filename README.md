@@ -52,5 +52,42 @@ julia> data = zeros(10000); @measure g(data)
 └───────────────────────┴────────────┴─────────────┘
 ```
 
+The `@pstats' macro provides another (perhaps more concise) tool to measure
+performance events, which can be used in the same way as `@timed` of the
+standard library. The following example measures default events and reports its
+summary:
+```
+julia> using LinuxPerf, Random
+
+julia> mt = MersenneTwister(1234);
+
+julia> @pstats rand(mt, 1_000_000);  # compile
+
+julia> @pstats rand(mt, 1_000_000)  # default events
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ cpu-cycles               2.88e+06   58.1%  #  1.2 cycles per ns
+│ stalled-cycles-frontend  9.50e+03   58.1%  #  0.3% of cycles
+└ stalled-cycles-backend   1.76e+06   58.1%  # 61.2% of cycles
+┌ instructions             1.11e+07   41.9%  #  3.9 insns per cycle
+│ branch-instructions      5.32e+05   41.9%  #  4.8% of insns
+└ branch-misses            2.07e+03   41.9%  #  0.4% of branch insns
+┌ task-clock               2.38e+06  100.0%  #  2.4 ms
+│ context-switches         0.00e+00  100.0%
+│ cpu-migrations           0.00e+00  100.0%
+└ page-faults              1.95e+03  100.0%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+julia> insn = "(instructions,branch-instructions,branch-misses)"
+
+julia> @pstats insn rand(mt, 1_000_000)  # specific events
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ instructions             1.05e+07  100.0%
+│ branch-instructions      5.03e+05  100.0%  #  4.8% of insns
+└ branch-misses            2.01e+03  100.0%  #  0.4% of branch insns
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+See the documentation of `@pstats` for more details and available options.
+
 For more fine tuned performance profile examples, please check out the `test`
 directory.

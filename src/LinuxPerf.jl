@@ -898,9 +898,9 @@ function printcounters(io::IO, groups::Vector{Vector{Counter}})
                     for (num, den, label) in [
                             ("stalled-cycles-frontend", "cpu-cycles", "cycles"),
                             ("stalled-cycles-backend", "cpu-cycles", "cycles"),
-                            ("branch-instructions", "instructions", "instructions"),
-                            ("branch-misses", "branch-instructions", "branch instructions"),
-                            ("cache-misses", "cache-references", "cache references"),
+                            ("branch-instructions", "instructions", "insns"),
+                            ("branch-misses", "branch-instructions", "branch insns"),
+                            ("cache-misses", "cache-references", "cache refs"),
                             ("L1-dcache-load-misses", "L1-dcache-loads", "dcache loads"),
                             ("L1-icache-load-misses", "L1-icache-loads", "icache loads"),
                             ("dTLB-load-misses", "dTLB-loads", "dTLB loads"),
@@ -1017,8 +1017,8 @@ julia> @pstats sort(xs)
 │ stalled-cycles-frontend  1.09e+07   49.7%  #  4.2% of cycles
 └ stalled-cycles-backend   7.07e+06   49.7%  #  2.7% of cycles
 ┌ instructions             1.96e+08   50.3%  #  0.8 insns per cycle
-│ branch-instructions      4.02e+07   50.3%  # 20.5% of instructions
-└ branch-misses            8.15e+06   50.3%  # 20.3% of branch instructions
+│ branch-instructions      4.02e+07   50.3%  # 20.5% of insns
+└ branch-misses            8.15e+06   50.3%  # 20.3% of branch insns
 ┌ task-clock               7.61e+07  100.0%  # 76.1 ms
 │ context-switches         7.00e+00  100.0%
 │ cpu-migrations           0.00e+00  100.0%
@@ -1029,8 +1029,8 @@ julia> @pstats "(cpu-cycles,instructions,branch-instructions,branch-misses),page
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ┌ cpu-cycles               2.64e+08  100.0%  #  3.5 cycles per ns
 │ instructions             1.86e+08  100.0%  #  0.7 insns per cycle
-│ branch-instructions      3.74e+07  100.0%  # 20.1% of instructions
-└ branch-misses            8.21e+06  100.0%  # 21.9% of branch instructions
+│ branch-instructions      3.74e+07  100.0%  # 20.1% of insns
+└ branch-misses            8.21e+06  100.0%  # 21.9% of branch insns
 ╶ page-faults              1.95e+03  100.0%
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
