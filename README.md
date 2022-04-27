@@ -52,7 +52,7 @@ julia> data = zeros(10000); @measure g(data)
 └───────────────────────┴────────────┴─────────────┘
 ```
 
-The `@pstats' macro provides another (perhaps more concise) tool to measure
+The `@pstats` macro provides another (perhaps more concise) tool to measure
 performance events, which can be used in the same way as `@timed` of the
 standard library. The following example measures default events and reports its
 summary:
