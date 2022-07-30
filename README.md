@@ -91,3 +91,7 @@ See the documentation of `@pstats` for more details and available options.
 
 For more fine tuned performance profile examples, please check out the `test`
 directory.
+
+## Similar tools
+
+If you're willing to install separate software, you might want to check out [LIKWID.jl](https://github.com/JuliaPerf/LIKWID.jl) which provides a simpler and more powerful interface to hardware performance monitoring.
