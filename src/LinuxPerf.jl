@@ -367,7 +367,7 @@ function Base.show(io::IO, c::Counters)
             c.running == 0 ? ["did not run" "0 %"] :
                 [format(Int64(c.value), commas=true) @sprintf("%.1f %%", 100*(c.running/c.enabled))]
     end
-    return pretty_table(io, stats, ["Events", "Active Time"], row_names=events, alignment=:l, crop=:none, body_hlines=collect(axes(stats, 1)))
+    return pretty_table(io, stats, header=["Events", "Active Time"], row_labels=events, alignment=:l, crop=:none, body_hlines=collect(axes(stats, 1)))
 end
 
 enable!(b::PerfBench) = foreach(enable!, b.groups)
