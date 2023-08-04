@@ -553,7 +553,7 @@ end
 
 function parse_pstats_options(opts)
     # default events
-    events = :(LinuxPerf.parse_groups("
+    events = :($parse_groups("
         (cpu-cycles, stalled-cycles-frontend, stalled-cycles-backend),
         (instructions, branch-instructions, branch-misses),
         (task-clock, context-switches, cpu-migrations, page-faults)
