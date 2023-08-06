@@ -8,4 +8,5 @@ steps:
       queue: "juliaecosystem"
       sandbox.jl: "true"
       os: "linux"
+      arch: "x86_64"
     timeout_in_minutes: 60
