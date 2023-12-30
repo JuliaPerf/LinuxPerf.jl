@@ -565,7 +565,7 @@ function parse_pstats_options(opts)
     threads = true
     for (i, opt) in enumerate(opts)
         if i == 1 && !(opt isa Expr && opt.head == :(=))
-            events = :(parse_groups($(esc(opt))))
+            events = :($parse_groups($(esc(opt))))
         elseif opt isa Expr && opt.head == :(=)
             key, val = opt.args
             val = esc(val)
