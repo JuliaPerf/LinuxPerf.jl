@@ -1,5 +1,15 @@
 module LinuxPerf
 
+if !isdefined(Base, :get_extension)
+    using Requires
+end
+
+@static if !isdefined(Base, :get_extension)
+    function __init__()
+        @require JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6" begin include("../ext/JSONExt.jl") end
+    end
+end
+
 using Printf
 using PrettyTables
 using Formatting

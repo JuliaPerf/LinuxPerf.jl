@@ -3,7 +3,7 @@
 module JSONExt
 
 using LinuxPerf: parse_groups
-using JSON
+isdefined(Base, :get_extension) ? (import JSON) : (import ..JSON)
 
 JSON.lower(::typeof(parse_groups)) = "LinuxPerf.parse_groups"
 
