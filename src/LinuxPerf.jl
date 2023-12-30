@@ -118,6 +118,12 @@ struct EventType
     event::UInt64
 end
 
+Base.copy(event::EventType) = EventType(event.category, event.event)
+
+function Base.convert(::Type{EventType}, d::Dict{String})
+    return EventType(d["category"], d["event"])
+end
+
 function all_events()
     evts = EventType[]
     for (cat_name, cat_id, events) in EVENT_TYPES
@@ -354,6 +360,18 @@ struct Counter
     value::UInt64
     enabled::UInt64
     running::UInt64
+end
+
+function Base.copy(counter::Counter)
+    return Counter(
+        copy(counter.event), counter.value, counter.enabled, counter.running
+    )
+end
+
+function Base.convert(::Type{Counter}, d::Dict{String})
+    return Counter(
+        convert(EventType, d["event"]), d["value"], d["enabled"], d["running"]
+    )
 end
 
 struct Counters
@@ -734,6 +752,14 @@ struct ThreadStats
     groups::Vector{Vector{Counter}}
 end
 
+function Base.copy(thread_stats::ThreadStats)
+    return ThreadStats(thread_stats.pid, copy(thread_stats.groups))
+end
+
+function Base.convert(::Type{ThreadStats}, d::Dict{String})
+    return ThreadStats(d["pid"], d["groups"])
+end
+
 function ThreadStats(b::PerfBench)
     groups = Vector{Counter}[]
     for g in b.groups
@@ -774,6 +800,10 @@ scaledcount(counter::Counter) = counter.value * (counter.enabled / counter.runni
 struct Stats
     threads::Vector{ThreadStats}
 end
+
+Base.copy(stats::Stats) = Stats(copy(stats.threads))
+
+Base.convert(::Type{Stats}, d::Dict{String}) = Stats(d["threads"])
 
 Stats(b::PerfBenchThreaded) = Stats(map(ThreadStats, b.data))
 
