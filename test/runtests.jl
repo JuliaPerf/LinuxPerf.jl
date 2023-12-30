@@ -1,7 +1,8 @@
 using LinuxPerf
 using Test
+using JSON
 
-using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups
+using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, Counter, ThreadStats, Stats, parse_pstats_options
 
 @testset "LinuxPerf" begin
 
@@ -97,5 +98,62 @@ end
     @pstats "cpu-cycles,(instructions,branch-instructions,branch-misses),(task-clock,context-switches,cpu-migrations,page-faults),(L1-dcache-load-misses,L1-dcache-loads,L1-icache-load-misses),(dTLB-load-misses,dTLB-loads)" foo!(dest, a, b, c)
 end
 
+@testset "copy structs" begin
+    event = EventType(:hw, :cycles)
+    @test_nowarn copy(event)
+    @test copy(event) === event
+
+    counter = Counter(event, 1, 2, 3)
+    @test_nowarn copy(counter)
+    @test copy(counter) === counter
+
+    thread_stats = ThreadStats(0, [[counter, counter]])
+    @test_nowarn copy(thread_stats)
+    copied_thread_stats = copy(thread_stats)
+    @test copied_thread_stats.pid == thread_stats.pid
+    @test copied_thread_stats.groups == thread_stats.groups
+    @test copied_thread_stats.groups !== thread_stats.groups
+
+    stats = Stats([thread_stats])
+    @test_nowarn copy(stats)
+    copied_stats = copy(stats)
+    @test copied_stats.threads == stats.threads
+    @test copied_stats.threads !== stats.threads
+end
+
+@testset "convert structs from dicts" begin
+    event_dict = Dict("category"=>0, "event"=>1)
+    event = EventType(0, 1)
+
+    counter_dict = Dict("event"=>event_dict, "value"=>1, "enabled"=>2, "running"=>3)
+    counter = Counter(event, 1, 2, 3)
+
+    thread_stats_dict = Dict("pid"=>0, "groups"=>[[counter_dict, counter_dict]])
+    thread_stats = ThreadStats(0, [[counter, counter]])
+
+    stats_dict = Dict("threads"=>[thread_stats_dict])
+    stats = Stats([thread_stats])
+
+    @test convert(EventType, event_dict) == event
+    @test convert(Counter, counter_dict) == counter
+
+    converted_thread_stats = convert(ThreadStats, thread_stats_dict)
+    @test converted_thread_stats.pid == thread_stats.pid
+    @test converted_thread_stats.groups == thread_stats.groups
+
+    converted_stats = convert(Stats, stats_dict)
+    @test all(x -> x[1].pid == x[2].pid && x[1].groups == x[2].groups, zip(converted_stats.threads, stats.threads))
+end
+
+@testset "Serialize Tests" begin
+    @test_nowarn JSON.print(devnull, parse_pstats_options([]))
+
+    event = EventType(0, 1)
+    counter = Counter(event, 1, 2, 3)
+    thread_stats = ThreadStats(0, [[counter, counter]])
+    stats = Stats([thread_stats])
+
+    @test_nowarn JSON.print(devnull, stats)
+end
 
 end
