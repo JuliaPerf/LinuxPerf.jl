@@ -1,8 +1,7 @@
 using LinuxPerf
 using Test
-using JSON
 
-using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, Counter, ThreadStats, Stats, parse_pstats_options
+using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, Counter, ThreadStats, Stats
 
 @testset "LinuxPerf" begin
 
@@ -146,8 +145,6 @@ end
 end
 
 @testset "Serialize Tests" begin
-    @test_nowarn JSON.print(devnull, parse_pstats_options([]))
-
     event = EventType(0, 1)
     counter = Counter(event, 1, 2, 3)
     thread_stats = ThreadStats(0, [[counter, counter]])
