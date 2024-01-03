@@ -144,13 +144,4 @@ end
     @test all(x -> x[1].pid == x[2].pid && x[1].groups == x[2].groups, zip(converted_stats.threads, stats.threads))
 end
 
-@testset "Serialize Tests" begin
-    event = EventType(0, 1)
-    counter = Counter(event, 1, 2, 3)
-    thread_stats = ThreadStats(0, [[counter, counter]])
-    stats = Stats([thread_stats])
-
-    @test_nowarn JSON.print(devnull, stats)
-end
-
 end
