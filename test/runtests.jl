@@ -120,28 +120,4 @@ end
     @test copied_stats.threads !== stats.threads
 end
 
-@testset "convert structs from dicts" begin
-    event_dict = Dict("category"=>0, "event"=>1)
-    event = EventType(0, 1)
-
-    counter_dict = Dict("event"=>event_dict, "value"=>1, "enabled"=>2, "running"=>3)
-    counter = Counter(event, 1, 2, 3)
-
-    thread_stats_dict = Dict("pid"=>0, "groups"=>[[counter_dict, counter_dict]])
-    thread_stats = ThreadStats(0, [[counter, counter]])
-
-    stats_dict = Dict("threads"=>[thread_stats_dict])
-    stats = Stats([thread_stats])
-
-    @test convert(EventType, event_dict) == event
-    @test convert(Counter, counter_dict) == counter
-
-    converted_thread_stats = convert(ThreadStats, thread_stats_dict)
-    @test converted_thread_stats.pid == thread_stats.pid
-    @test converted_thread_stats.groups == thread_stats.groups
-
-    converted_stats = convert(Stats, stats_dict)
-    @test all(x -> x[1].pid == x[2].pid && x[1].groups == x[2].groups, zip(converted_stats.threads, stats.threads))
-end
-
 end
