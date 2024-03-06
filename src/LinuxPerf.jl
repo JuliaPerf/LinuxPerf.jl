@@ -359,8 +359,8 @@ struct Counters
     counters::Vector{Counter}
 end
 
-addcommas(i::Int) = addcommas(string(i))
-function addcommas(s::String)
+_addcommas(i::Int) = _addcommas(string(i))
+function _addcommas(s::String)
     len = length(s)
     t = ""
     for i in 1:3:len
@@ -383,7 +383,7 @@ function Base.show(io::IO, c::Counters)
     stats  = mapreduce(vcat, c.counters) do c
         c.enabled == 0 ? ["never enabled" "0 %"] :
             c.running == 0 ? ["did not run" "0 %"] :
-                [addcommas(Int64(c.value)) @sprintf("%.1f %%", 100*(c.running/c.enabled))]
+                [_addcommas(Int64(c.value)) @sprintf("%.1f %%", 100*(c.running/c.enabled))]
     end
     return pretty_table(io, stats, header=["Events", "Active Time"], row_labels=events, alignment=:l, crop=:none, body_hlines=collect(axes(stats, 1)))
 end
