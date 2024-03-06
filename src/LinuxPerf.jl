@@ -359,7 +359,7 @@ struct Counters
     counters::Vector{Counter}
 end
 
-_addcommas(i::Int) = _addcommas(string(i))
+_addcommas(i::Int64) = _addcommas(string(i))
 function _addcommas(s::String)
     len = length(s)
     t = ""
