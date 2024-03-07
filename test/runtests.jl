@@ -97,5 +97,13 @@ end
     @pstats "cpu-cycles,(instructions,branch-instructions,branch-misses),(task-clock,context-switches,cpu-migrations,page-faults),(L1-dcache-load-misses,L1-dcache-loads,L1-icache-load-misses),(dTLB-load-misses,dTLB-loads)" foo!(dest, a, b, c)
 end
 
+@testset "_addcommas" begin
+    @test LinuxPerf._addcommas(1) == "1"
+    @test LinuxPerf._addcommas(12) == "12"
+    @test LinuxPerf._addcommas(123) == "123"
+    @test LinuxPerf._addcommas(1234) == "1,234"
+    @test LinuxPerf._addcommas(12345) == "12,345"
+    @test LinuxPerf._addcommas(typemin(Int64)) == "-9,223,372,036,854,775,808"
+end
 
 end

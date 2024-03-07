@@ -2,7 +2,6 @@ module LinuxPerf
 
 using Printf
 using PrettyTables
-using Formatting
 
 export @measure, @measured, @pstats
 export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
@@ -360,12 +359,31 @@ struct Counters
     counters::Vector{Counter}
 end
 
+_addcommas(i::Int64) = _addcommas(string(i))
+function _addcommas(s::String)
+    len = length(s)
+    t = ""
+    for i in 1:3:len
+        subs = s[max(1,len-i-1):len-i+1]
+        if i == 1
+            t = subs
+        else
+            if match(r"[0-9]", subs) != nothing
+                t = subs * "," * t
+            else
+                t = subs * t
+            end
+        end
+    end
+    return t
+end
+
 function Base.show(io::IO, c::Counters)
     events = map(x -> x.event, c.counters)
     stats  = mapreduce(vcat, c.counters) do c
         c.enabled == 0 ? ["never enabled" "0 %"] :
             c.running == 0 ? ["did not run" "0 %"] :
-                [format(Int64(c.value), commas=true) @sprintf("%.1f %%", 100*(c.running/c.enabled))]
+                [_addcommas(Int64(c.value)) @sprintf("%.1f %%", 100*(c.running/c.enabled))]
     end
     return pretty_table(io, stats, header=["Events", "Active Time"], row_labels=events, alignment=:l, crop=:none, body_hlines=collect(axes(stats, 1)))
 end
