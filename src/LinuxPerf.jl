@@ -4,7 +4,7 @@ using Printf
 using PrettyTables
 
 export @measure, @measured, @pstats
-export make_bench, enable!, disable!, reset!, reasonable_defaults, counters
+export make_bench, enable!, disable!, reset!, reasonable_defaults, counters, close
 
 import Base: show, length
 
@@ -320,6 +320,14 @@ function Base.show(io::IO, g::EventGroup)
     end
     print(io, "\t", g.event_types[end], ")")
 end
+
+const SYS_prctl = Clong(157)
+const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
+const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
+
+# syscall is lower overhead than calling libc's prctl
+enable_all!() = ccall(:syscall, Cint, (Clong, Cint), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
+disable_all!() = ccall(:syscall, Cint, (Clong, Cint), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
 
 const PERF_EVENT_IOC_ENABLE =  UInt64(0x2400)
 const PERF_EVENT_IOC_DISABLE = UInt64(0x2401)
@@ -1064,9 +1072,9 @@ macro pstats(args...)
             @debug dump_groups(groups)
             bench = make_bench_threaded(groups, threads = $(opts.threads))
             try
-                enable!(bench)
+                enable_all!()
                 val = $(esc(expr))
-                disable!(bench)
+                disable_all!()
                 # trick the compiler not to eliminate the code
                 stats = rand() < 0 ? val : Stats(bench)
                 return stats::Stats
