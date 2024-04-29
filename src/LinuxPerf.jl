@@ -326,8 +326,8 @@ const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
 # syscall is lower overhead than calling libc's prctl
-enable_all!() = ccall(:syscall, Cint, (Clong, Cint), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
-disable_all!() = ccall(:syscall, Cint, (Clong, Cint), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
+enable_all!() = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
+disable_all!() = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
 
 const PERF_EVENT_IOC_ENABLE =  UInt64(0x2400)
 const PERF_EVENT_IOC_DISABLE = UInt64(0x2401)
