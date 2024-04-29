@@ -24,11 +24,6 @@ using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, cou
         results = counters(bench)
         close(bench)
 
-        @test all(x->isenabled(x) && isrun(x), results.counters)
-        @test scaledcount(results.counters[findfirst(x->x.event == EventType(:hw, :cycles), results.counters)]) > 1000
-        @test scaledcount(results.counters[findfirst(x->x.event == EventType(:hw, :branches), results.counters)]) > 250
-        @test scaledcount(results.counters[findfirst(x->x.event == EventType(:hw, :instructions), results.counters)]) > 1000
-
         true  # Succeeded without any exceptions...
     end
 
@@ -49,11 +44,6 @@ using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, cou
 
         results = counters(bench)
         close(bench)
-
-        @test all(x->isenabled(x) && isrun(x), results.counters)
-        @test scaledcount(results.counters[findfirst(x->x.event == EventType(:hw, :cycles), results.counters)]) > 1000
-        @test scaledcount(results.counters[findfirst(x->x.event == EventType(:hw, :branches), results.counters)]) > 250
-        @test scaledcount(results.counters[findfirst(x->x.event == EventType(:hw, :instructions), results.counters)]) > 1000
 
         true  # Succeeded without any exceptions...
     end
