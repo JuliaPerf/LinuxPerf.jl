@@ -325,6 +325,20 @@ function Base.show(io::IO, g::EventGroup)
     print(io, "\t", g.event_types[end], ")")
 end
 
+const SYS_prctl = Clong(157)
+const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
+const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
+
+# syscall is lower overhead than calling libc's prctl
+function enable_all!()
+    res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
+    Base.systemerror(:prctl, res < 0)
+end
+function disable_all!()
+    res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
+    Base.systemerror(:prctl, res < 0)
+end
+
 const PERF_EVENT_IOC_ENABLE =  UInt64(0x2400)
 const PERF_EVENT_IOC_DISABLE = UInt64(0x2401)
 const PERF_EVENT_IOC_RESET =   UInt64(0x2403)
@@ -1068,9 +1082,9 @@ macro pstats(args...)
             @debug dump_groups(groups)
             bench = make_bench_threaded(groups, threads = $(opts.threads))
             try
-                enable!(bench)
+                enable_all!()
                 val = $(esc(expr))
-                disable!(bench)
+                disable_all!()
                 # trick the compiler not to eliminate the code
                 stats = rand() < 0 ? val : Stats(bench)
                 return stats::Stats

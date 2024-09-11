@@ -1,7 +1,7 @@
 using LinuxPerf
 using Test
 
-using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups
+using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, enable_all!, disable_all!
 
 @testset "LinuxPerf" begin
 
@@ -21,7 +21,29 @@ using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, cou
         end
         g(zeros(10000))
 
-        counters(bench)
+        results = counters(bench)
+        close(bench)
+
+        true  # Succeeded without any exceptions...
+    end
+
+    @test begin
+        bench = make_bench(reasonable_defaults);
+        @noinline function g(a)
+            enable_all!()
+            c = 0
+            for x in a
+                if x > 0
+                    c += 1
+                end
+            end
+            disable_all!()
+            c
+        end
+        g(zeros(10000))
+
+        results = counters(bench)
+        close(bench)
 
         true  # Succeeded without any exceptions...
     end
