@@ -1,7 +1,7 @@
 using LinuxPerf
 using Test
 
-using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, Counter, ThreadStats, Stats, enable_all!, disable_all!, scaledcount, isenabled, isrun
+using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, enable_all!, disable_all!
 
 @testset "LinuxPerf" begin
 
