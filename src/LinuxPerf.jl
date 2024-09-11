@@ -289,8 +289,12 @@ mutable struct EventGroup
                     end
                     continue
                 else
-                    if errno == Libc.EACCES && !userspace_only
-                        @warn("try to adjust /proc/sys/kernel/perf_event_paranoid to a value <= 1 or use user-space only events")
+                    if errno == Libc.EACCES
+                        if !userspace_only
+                            @warn("try to adjust /proc/sys/kernel/perf_event_paranoid to a value <= 1 or use user-space only events")
+                        else
+                            @warn("try to adjust /proc/sys/kernel/perf_event_paranoid to a value <= 2 or run with the CAP_PERFMON capability")
+                        end
                     end
                     error("perf_event_open error : $(Libc.strerror(errno))")
                 end
