@@ -12,7 +12,9 @@ macro measure(expr, args...)
     esc(quote
         local bench
         _, bench = $LinuxPerf.@measured($expr, $(args...))
-        $counters(bench)
+        local counts = $counters(bench)
+        $close(bench)
+        counts
     end)
 end
 macro measured(expr, events = reasonable_defaults)
