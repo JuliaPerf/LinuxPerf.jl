@@ -350,16 +350,20 @@ end
 const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
-# syscall is lower overhead than calling libc's prctl
-function enable_all!()
-    SYS_prctl == -1 && error("prctl error : unknown architecture")
-    res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
+@inline function fast_prctl(op)
+    if SYS_prctl == -1
+        res = ccall(:prctl, Cint, (Cint...), op)
+    else
+        # syscall is lower overhead than calling libc's prctl
+        res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
+    end
     Base.systemerror(:prctl, res < 0)
+
+function enable_all!()
+    fast_prctl(PR_TASK_PERF_EVENTS_ENABLE)
 end
 function disable_all!()
-    SYS_prctl == -1 && error("prctl error : unknown architecture")
-    res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
-    Base.systemerror(:prctl, res < 0)
+    fast_prctl(PR_TASK_PERF_EVENTS_DISABLE)
 end
 
 const PERF_EVENT_IOC_ENABLE =  UInt64(0x2400)
