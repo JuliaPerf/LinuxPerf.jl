@@ -493,8 +493,10 @@ Base.close(b::PerfBenchThreaded) = foreach(close, b.data)
 
 function make_bench_threaded(groups; threads = true)
     data = PerfBench[]
+    warn_unsupported = true
     for tid in (threads ? alltids() : zero(getpid()))
-        push!(data, PerfBench(tid, [EventGroup(g, pid = tid, userspace_only = false) for g in groups]))
+        push!(data, PerfBench(tid, [EventGroup(g; pid = tid, userspace_only = false, warn_unsupported) for g in groups]))
+        warn_unsupported = false # First tid's events will already have issued warnings
     end
     return PerfBenchThreaded(data)
 end
