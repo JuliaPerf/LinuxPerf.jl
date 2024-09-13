@@ -351,13 +351,15 @@ const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
 @inline function fast_prctl(op)
-    if SYS_prctl == -1
-        res = ccall(:prctl, Cint, (Cint, Cint...), op)
-    else
-        res = Base.llvmcall("""
+    res = if SYS_prctl == -1
+        ccall(:prctl, Cint, (Cint, Cint...), op)
+    elseif Sys.ARCH == :86_64
+        Base.llvmcall("""
         %a = call i32 asm sideeffect "syscall", "={rax},{rax},{rdi},~{rcx},~{r11},~{memory}"(i64 %0, i32 %1)
         ret i32 %a
         """, Int32, Tuple{Int64, Int32}, SYS_prctl, op)
+    else
+        ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
     end
     Base.systemerror(:prctl, res < 0)
 end
