@@ -155,13 +155,24 @@ function Base.show(io::IO, e::EventType)
     end
 end
 
-const SYS_perf_event_open = 298
+const SYS_perf_event_open = if Sys.ARCH === :x86_64
+    Clong(298)
+elseif Sys.ARCH === :i686
+    Clong(336)
+elseif Sys.ARCH === :aarch64
+    Clong(241)
+elseif Sys.ARCH === :arm
+    Clong(364)
+else
+    Clong(-1) # sentinel for unknown syscall ID
+end
 
 """
     perf_event_open(attr::perf_event_attr, pid, cpu, fd, flags)
 """
 function perf_event_open(attr::perf_event_attr, pid, cpu, leader_fd, flags)
     r_attr = Ref(attr)
+    SYS_perf_event_open == -1 && error("perf_event_open error : unknown architecture")
     GC.@preserve r_attr begin
         # Have to do a manual conversion, since the ABI is a vararg call
         ptr = Base.unsafe_convert(Ptr{Cvoid}, Base.cconvert(Ptr{Cvoid}, r_attr))
@@ -325,16 +336,28 @@ function Base.show(io::IO, g::EventGroup)
     print(io, "\t", g.event_types[end], ")")
 end
 
-const SYS_prctl = Clong(157)
+const SYS_prctl = if Sys.ARCH === :x86_64
+    Clong(157)
+elseif Sys.ARCH === :i686
+    Clong(172)
+elseif Sys.ARCH === :aarch64
+    Clong(167)
+elseif Sys.ARCH === :arm
+    Clong(172)
+else
+    Clong(-1) # sentinel for unknown syscall ID
+end
 const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
 # syscall is lower overhead than calling libc's prctl
 function enable_all!()
+    SYS_prctl == -1 && error("prctl error : unknown architecture")
     res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
     Base.systemerror(:prctl, res < 0)
 end
 function disable_all!()
+    SYS_prctl == -1 && error("prctl error : unknown architecture")
     res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
     Base.systemerror(:prctl, res < 0)
 end
