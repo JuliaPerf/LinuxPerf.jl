@@ -359,6 +359,7 @@ const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
         ret i32 %a
         """, Int32, Tuple{Int64, Int32}, SYS_prctl, op)
     else
+        # syscall is lower overhead than calling libc's prctl
         ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
     end
     Base.systemerror(:prctl, res < 0)
