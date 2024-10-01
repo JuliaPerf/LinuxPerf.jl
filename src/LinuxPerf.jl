@@ -369,6 +369,7 @@ const PERF_EVENT_IOC_DISABLE = UInt64(0x2401)
 const PERF_EVENT_IOC_RESET =   UInt64(0x2403)
 
 function ioctl(group::EventGroup, x)
+    group.leader_fd == -1 && return nothing
     res = ccall(:ioctl, Cint, (Cint, Clong, Clong), group.leader_fd, x, 1)
     Base.systemerror(:ioctl, res < 0)
     return nothing
@@ -383,6 +384,7 @@ function Base.close(g::EventGroup)
         fd == g.leader_fd && continue # close leader_fd last
         ccall(:close, Cint, (Cint,), fd)
     end
+    g.leader_fd == -1 && return
     ccall(:close, Cint, (Cint,), g.leader_fd)
 end
 
@@ -441,6 +443,7 @@ function counters(b::PerfBench)
     c = Counter[]
     for g in b.groups
         values = Vector{UInt64}(undef, length(g)+1+2)
+        g.leader_fd == -1 && continue # empty group
         read!(g.leader_io, values)
         #?Ref@assert(length(g) == values[1])
         enabled, running = values[2], values[3]
@@ -801,6 +804,10 @@ function ThreadStats(b::PerfBench)
     groups = Vector{Counter}[]
     for g in b.groups
         values = Vector{UInt64}(undef, length(g)+1+2)
+        if g.leader_fd == -1
+            push!(groups, Counter[]) # empty group
+            continue
+        end
         read!(g.leader_io, values)
         #?Ref@assert(length(g) == values[1])
         enabled, running = values[2], values[3]

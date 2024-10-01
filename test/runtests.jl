@@ -1,7 +1,7 @@
 using LinuxPerf
 using Test
 
-using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventType, EventTypeExt, parse_groups, enable_all!, disable_all!
+using LinuxPerf: make_bench, enable!, disable!, reset!, reasonable_defaults, counters, EventGroup, EventType, EventTypeExt, parse_groups, enable_all!, disable_all!
 
 @testset "LinuxPerf" begin
 
@@ -126,6 +126,14 @@ end
     @test LinuxPerf._addcommas(1234) == "1,234"
     @test LinuxPerf._addcommas(12345) == "12,345"
     @test LinuxPerf._addcommas(typemin(Int64)) == "-9,223,372,036,854,775,808"
+end
+
+@testset "empty EventGroup" begin
+    # Creating an empty EventGroup should be a no-op (and not error)
+    g = EventGroup(EventType[])
+    @test length(g.fds) == 0
+    @test g.leader_fd == -1
+    close(g) # also a no-op
 end
 
 end
