@@ -14,10 +14,13 @@ steps:
   - label: "Julia v1.6 (i686)"
     plugins:
       - JuliaCI/julia:
-          version: "1"
+          version: "1.6"
       - staticfloat/sandbox#v1:
          rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v5.44/agent_linux.i686.tar.gz"
          rootfs_treehash: "c0e2d7ef8f233d978c15e61734f0dfa25aba7536"
+         workspaces:
+            - "/cache:/cache"
+      # Once inside the sandbox, install a different version of Julia to run our tests
       - JuliaCI/julia:
           version: "1.6"
           arch: "i686"
@@ -51,4 +54,16 @@ steps:
       sandbox.jl: "true"
       os: "linux"
       arch: "armv7l"
+    timeout_in_minutes: 60
+  - label: "Julia v1.10 (PPC64le)"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+          arch: "powerpc64le"
+      - JuliaCI/julia-test#v1:
+    agents:
+      queue: "juliaecosystem"
+      sandbox.jl: "true"
+      os: "linux"
+      arch: "powerpc64le"
     timeout_in_minutes: 60

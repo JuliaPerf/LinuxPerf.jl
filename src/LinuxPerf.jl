@@ -165,6 +165,8 @@ elseif Sys.ARCH === :aarch64
     Clong(241)
 elseif Sys.ARCH === :arm
     Clong(364)
+elseif Sys.ARCH === :powerpc64le || Sys.ARCH === :ppc64le
+    Clong(319)
 else
     Clong(-1) # sentinel for unknown syscall ID
 end
@@ -346,6 +348,8 @@ elseif Sys.ARCH === :aarch64
     Clong(167)
 elseif Sys.ARCH === :arm
     Clong(172)
+elseif Sys.ARCH === :powerpc64le || Sys.ARCH === :ppc64le
+    Clong(171)
 else
     Clong(-1) # sentinel for unknown syscall ID
 end
