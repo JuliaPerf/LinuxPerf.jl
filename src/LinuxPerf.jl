@@ -360,9 +360,17 @@ const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
         res = Base.llvmcall("""%val = call i64 asm sideeffect "syscall", "={rax},{rax},{rdi},~{rcx},~{r11},~{memory}"(i64 %0, i64 %1)
                                ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
         return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
+    elseif Sys.ARCH == :i686
+        res = Base.llvmcall("""%val = call i32 asm sideeffect "int \$\$0x80", "={eax},{eax},{ebx},~{memory}"(i32 %0, i32 %1)
+                               ret i32 %val""", Int32, Tuple{Int32, Int32}, SYS_prctl, Int32(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
     elseif Sys.ARCH == :aarch64
         res = Base.llvmcall("""%val = call i64 asm sideeffect "svc #0", "={x0},{x8},{x0},~{memory}"(i64 %0, i64 %1)
                                ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
+    elseif Sys.ARCH == :arm
+        res = Base.llvmcall("""%val = call i32 asm sideeffect "swi 0", "={r0},{r7},{r0},~{memory}"(i32 %0, i32 %1)
+                               ret i32 %val""", Int32, Tuple{Int32, Int32}, SYS_prctl, Int32(op))
         return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
     else
         # syscall is lower overhead than calling libc's prctl
