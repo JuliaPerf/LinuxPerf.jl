@@ -350,7 +350,7 @@ end
 const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
-@inline function fast_prctl(op)
+@inline function prctl(op)
     if SYS_prctl == -1
         res = ccall(:prctl, Cint, (Cint, Cint...), op)
         return Base.systemerror(:prctl, res < 0)
@@ -369,8 +369,8 @@ const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
     end
 end
 
-enable_all!() = fast_prctl(PR_TASK_PERF_EVENTS_ENABLE)
-disable_all!() = fast_prctl(PR_TASK_PERF_EVENTS_DISABLE)
+enable_all!() = prctl(PR_TASK_PERF_EVENTS_ENABLE)
+disable_all!() = prctl(PR_TASK_PERF_EVENTS_DISABLE)
 
 const PERF_EVENT_IOC_ENABLE =  UInt64(0x2400)
 const PERF_EVENT_IOC_DISABLE = UInt64(0x2401)
