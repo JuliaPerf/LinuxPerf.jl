@@ -351,18 +351,22 @@ const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
 @inline function fast_prctl(op)
-    res = if SYS_prctl == -1
-        ccall(:prctl, Cint, (Cint, Cint...), op)
+    if SYS_prctl == -1
+        res = ccall(:prctl, Cint, (Cint, Cint...), op)
+        return Base.systemerror(:prctl, res < 0)
     elseif Sys.ARCH == :x86_64
-        Base.llvmcall("""
-        %a = call i32 asm sideeffect "syscall", "={rax},{rax},{rdi},~{rcx},~{r11},~{memory}"(i64 %0, i32 %1)
-        ret i32 %a
-        """, Int32, Tuple{Int64, Int32}, SYS_prctl, op)
+        res = Base.llvmcall("""%val = call i64 asm sideeffect "syscall", "={rax},{rax},{rdi},~{rcx},~{r11},~{memory}"(i64 %0, i64 %1)
+                               ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
+    elseif Sys.ARCH == :aarch64
+        res = Base.llvmcall("""%val = call i64 asm sideeffect "svc #0", "={x0},{x8},{x0},~{memory}"(i64 %0, i64 %1)
+                               ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
     else
         # syscall is lower overhead than calling libc's prctl
-        ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
+        res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
+        return Base.systemerror(:prctl, res < 0)
     end
-    Base.systemerror(:prctl, res < 0)
 end
 
 enable_all!() = fast_prctl(PR_TASK_PERF_EVENTS_ENABLE)
