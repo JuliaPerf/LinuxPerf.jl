@@ -352,17 +352,27 @@ end
 const PR_TASK_PERF_EVENTS_DISABLE = Cint(31)
 const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
 
-# syscall is lower overhead than calling libc's prctl
-function enable_all!()
-    SYS_prctl == -1 && error("prctl error : unknown architecture")
-    res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_ENABLE)
-    Base.systemerror(:prctl, res < 0)
+@inline function prctl(op)
+    if SYS_prctl == -1
+        res = ccall(:prctl, Cint, (Cint, Cint...), op)
+        return Base.systemerror(:prctl, res < 0)
+    elseif Sys.ARCH == :x86_64
+        res = Base.llvmcall("""%val = call i64 asm sideeffect "syscall", "={rax},{rax},{rdi},~{rcx},~{r11},~{memory}"(i64 %0, i64 %1)
+                               ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
+    elseif Sys.ARCH == :aarch64
+        res = Base.llvmcall("""%val = call i64 asm sideeffect "svc #0", "={x0},{x8},{x0},~{memory}"(i64 %0, i64 %1)
+                               ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
+    else
+        # syscall is lower overhead than calling libc's prctl
+        res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
+        return Base.systemerror(:prctl, res < 0)
+    end
 end
-function disable_all!()
-    SYS_prctl == -1 && error("prctl error : unknown architecture")
-    res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, PR_TASK_PERF_EVENTS_DISABLE)
-    Base.systemerror(:prctl, res < 0)
-end
+
+enable_all!() = prctl(PR_TASK_PERF_EVENTS_ENABLE)
+disable_all!() = prctl(PR_TASK_PERF_EVENTS_DISABLE)
 
 const PERF_EVENT_IOC_ENABLE =  UInt64(0x2400)
 const PERF_EVENT_IOC_DISABLE = UInt64(0x2401)
