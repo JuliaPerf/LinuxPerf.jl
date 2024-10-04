@@ -179,7 +179,7 @@ function perf_event_open(attr::perf_event_attr, pid, cpu, leader_fd, flags)
         # Have to do a manual conversion, since the ABI is a vararg call
         ptr = Base.unsafe_convert(Ptr{Cvoid}, Base.cconvert(Ptr{Cvoid}, r_attr))
         fd = ccall(:syscall, Cint, (Clong, Clong...), SYS_perf_event_open,
-                   ptr, pid, cpu, leader_fd, flags)
+                   reinterpret(Clong, ptr), pid, cpu, leader_fd, flags)
     end
     return fd
 end
