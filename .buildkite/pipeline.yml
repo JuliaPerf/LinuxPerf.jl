@@ -1,12 +1,54 @@
 steps:
-  - label: "Julia v1.6"
+  - label: "Julia v1.6 (x86-64)"
     plugins:
       - JuliaCI/julia#v1:
           version: "1.6"
+          arch: "x86_64"
       - JuliaCI/julia-test#v1:
     agents:
       queue: "juliaecosystem"
       sandbox.jl: "true"
       os: "linux"
       arch: "x86_64"
+    timeout_in_minutes: 60
+  - label: "Julia v1.6 (i686)"
+    plugins:
+      - JuliaCI/julia:
+          version: "1"
+      - staticfloat/sandbox#v1:
+         rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v5.44/agent_linux.i686.tar.gz"
+         rootfs_treehash: "c0e2d7ef8f233d978c15e61734f0dfa25aba7536"
+      - JuliaCI/julia:
+          version: "1.6"
+          arch: "i686"
+      - JuliaCI/julia-test#v1:
+    agents:
+      queue: "juliaecosystem"
+      sandbox.jl: "true"
+      os: "linux"
+      arch: "x86_64"
+    timeout_in_minutes: 60
+  - label: "Julia v1.6 (AArch64)"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.6"
+          arch: "aarch64"
+      - JuliaCI/julia-test#v1:
+    agents:
+      queue: "juliaecosystem"
+      sandbox.jl: "true"
+      os: "linux"
+      arch: "aarch64"
+    timeout_in_minutes: 60
+  - label: "Julia v1.6 (ARMv7)"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.6"
+          arch: "armv7l"
+      - JuliaCI/julia-test#v1:
+    agents:
+      queue: "juliaecosystem"
+      sandbox.jl: "true"
+      os: "linux"
+      arch: "armv7l"
     timeout_in_minutes: 60
