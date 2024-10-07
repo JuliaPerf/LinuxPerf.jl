@@ -31,39 +31,3 @@ steps:
       os: "linux"
       arch: "x86_64"
     timeout_in_minutes: 60
-  - label: "Julia v1.6 (AArch64)"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "1.6"
-          arch: "aarch64"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "aarch64"
-    timeout_in_minutes: 60
-  - label: "Julia v1.6 (ARMv7)"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "1.6"
-          arch: "armv7l"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "armv7l"
-    timeout_in_minutes: 60
-  - label: "Julia v1.10 (PPC64le)"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "1.10"
-          arch: "powerpc64le"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "powerpc64le"
-    timeout_in_minutes: 60
