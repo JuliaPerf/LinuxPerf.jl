@@ -1139,11 +1139,10 @@ macro pstats(args...)
             bench = make_bench_threaded(groups, threads = $(opts.threads))
             try
                 enable_all!()
-                val = $(esc(expr))
+                Base.donotdelete($(esc(expr)))
                 disable_all!()
                 # trick the compiler not to eliminate the code
-                stats = rand() < 0 ? val : Stats(bench)
-                return stats::Stats
+                return Stats(bench)::Stats
             catch
                 rethrow()
             finally
