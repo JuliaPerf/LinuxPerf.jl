@@ -1140,12 +1140,14 @@ macro pstats(args...)
             try
                 enable_all!()
                 val = $(esc(expr))
-                @static if isdefined(Base, :donotdelete)
-                    Base.donotdelete(val)
-                end
                 disable_all!()
                 # trick the compiler not to eliminate the code
-                stats = @noinline rand() < 0 ? val : Stats(bench)
+                @static if isdefined(Base, :donotdelete)
+                    Base.donotdelete(val)
+                    stats = Stats(bench)
+                else
+                    stats = @noinline rand() < 0 ? val : Stats(bench)
+                end
                 return stats::Stats
             catch
                 rethrow()
