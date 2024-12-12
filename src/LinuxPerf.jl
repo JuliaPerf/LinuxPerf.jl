@@ -1146,7 +1146,7 @@ macro pstats(args...)
                     Base.donotdelete(val)
                     stats = Stats(bench)
                 else
-                    stats = (@noinline rand()) < 0 ? val : Stats(bench)
+                    stats = rand() < 0 ? val : Stats(bench)
                 end
                 return stats::Stats
             catch
