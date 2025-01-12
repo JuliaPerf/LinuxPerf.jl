@@ -167,6 +167,9 @@ elseif Sys.ARCH === :arm
     Clong(364)
 elseif Sys.ARCH === :powerpc64le || Sys.ARCH === :ppc64le
     Clong(319)
+elseif Sys.ARCH === :riscv64 || Sys.ARCH === :rv64
+    # See syscalls table at https://jborza.com/post/2021-05-11-riscv-linux-syscalls/
+    Clong(241)
 else
     Clong(-1) # sentinel for unknown syscall ID
 end
@@ -350,6 +353,9 @@ elseif Sys.ARCH === :arm
     Clong(172)
 elseif Sys.ARCH === :powerpc64le || Sys.ARCH === :ppc64le
     Clong(171)
+elseif Sys.ARCH === :riscv64 || Sys.ARCH === :rv64
+    # See syscalls table at https://jborza.com/post/2021-05-11-riscv-linux-syscalls/
+    Clong(167)
 else
     Clong(-1) # sentinel for unknown syscall ID
 end
