@@ -374,6 +374,10 @@ const PR_TASK_PERF_EVENTS_ENABLE = Cint(32)
         res = Base.llvmcall("""%val = call i32 asm sideeffect "swi 0", "={r0},{r7},{r0},~{memory}"(i32 %0, i32 %1)
                                ret i32 %val""", Int32, Tuple{Int32, Int32}, SYS_prctl, Int32(op))
         return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
+    elseif Sys.ARCH === :riscv64 || Sys.ARCH === :rv64
+        res = Base.llvmcall("""%val = call i64 asm sideeffect "ecall", "={a0},{a7},{a0},~{memory}"(i64 %0, i64 %1)
+                               ret i64 %val""", Int64, Tuple{Int64, Int64}, SYS_prctl, Int64(op))
+        return (res >= 0) ? nothing : throw(Base.SystemError("prctl", -res, nothing))
     else
         # syscall is lower overhead than calling libc's prctl
         res = ccall(:syscall, Cint, (Clong, Clong...), SYS_prctl, op)
