@@ -157,18 +157,25 @@ function Base.show(io::IO, e::EventType)
     end
 end
 
+# To support a new architecture, look for the code corresponding to the `perf_event_open`
+# syscall in https://gpages.juszkiewicz.com.pl/syscalls-table/syscalls.html
 const SYS_perf_event_open = if Sys.ARCH === :x86_64
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/x86/entry/syscalls/syscall_64.tbl
     Clong(298)
 elseif Sys.ARCH === :i686
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/x86/entry/syscalls/syscall_32.tbl
     Clong(336)
 elseif Sys.ARCH === :aarch64
+    # See also https://arm64.syscall.sh/
     Clong(241)
 elseif Sys.ARCH === :arm
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/arm/tools/syscall.tbl
     Clong(364)
 elseif Sys.ARCH === :powerpc64le || Sys.ARCH === :ppc64le
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/powerpc/kernel/syscalls/syscall.tbl
     Clong(319)
 elseif Sys.ARCH === :riscv64 || Sys.ARCH === :rv64
-    # See syscalls table at https://jborza.com/post/2021-05-11-riscv-linux-syscalls/
+    # See also https://jborza.com/post/2021-05-11-riscv-linux-syscalls/
     Clong(241)
 else
     Clong(-1) # sentinel for unknown syscall ID
@@ -343,18 +350,25 @@ function Base.show(io::IO, g::EventGroup)
     print(io, "\t", g.event_types[end], ")")
 end
 
+# To support a new architecture, look for the code corresponding to the `prctl` syscall in
+# https://gpages.juszkiewicz.com.pl/syscalls-table/syscalls.html
 const SYS_prctl = if Sys.ARCH === :x86_64
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/x86/entry/syscalls/syscall_64.tbl
     Clong(157)
 elseif Sys.ARCH === :i686
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/x86/entry/syscalls/syscall_32.tbl
     Clong(172)
 elseif Sys.ARCH === :aarch64
+    # See also https://arm64.syscall.sh/
     Clong(167)
 elseif Sys.ARCH === :arm
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/arm/tools/syscall.tbl
     Clong(172)
 elseif Sys.ARCH === :powerpc64le || Sys.ARCH === :ppc64le
+    # See also https://github.com/torvalds/linux/blob/b62cef9a5c673f1b8083159f5dc03c1c5daced2f/arch/powerpc/kernel/syscalls/syscall.tbl
     Clong(171)
 elseif Sys.ARCH === :riscv64 || Sys.ARCH === :rv64
-    # See syscalls table at https://jborza.com/post/2021-05-11-riscv-linux-syscalls/
+    # See also https://jborza.com/post/2021-05-11-riscv-linux-syscalls/
     Clong(167)
 else
     Clong(-1) # sentinel for unknown syscall ID
