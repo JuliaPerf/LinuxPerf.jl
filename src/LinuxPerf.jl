@@ -533,46 +533,92 @@ end
 alltids(pid = getpid()) = parse.(typeof(pid), readdir("/proc/$(pid)/task"))
 
 # Event names are taken from the perf command.
-const NAME_TO_EVENT = Dict(
-    # hardware events
-    "branch-instructions" => EventType(:hw, :branches),
-    "branch-misses" => EventType(:hw, :branch_mispredicts),
-    "cache-misses" => EventType(:hw, :cache_misses),
-    "cache-references" => EventType(:hw, :cache_access),
-    "cpu-cycles" => EventType(:hw, :cycles),
-    "instructions" => EventType(:hw, :instructions),
-    "stalled-cycles-backend" => EventType(:hw, :stalled_cycles_backend),
-    "stalled-cycles-frontend" => EventType(:hw, :stalled_cycles_frontend),
+const NAME_TO_EVENT = let
+    d = Dict(
+        # hardware events
+        "branch-instructions" => EventType(:hw, :branches),
+        "branch-misses" => EventType(:hw, :branch_mispredicts),
+        "cache-misses" => EventType(:hw, :cache_misses),
+        "cache-references" => EventType(:hw, :cache_access),
+        "cpu-cycles" => EventType(:hw, :cycles),
+        "instructions" => EventType(:hw, :instructions),
+        "stalled-cycles-backend" => EventType(:hw, :stalled_cycles_backend),
+        "stalled-cycles-frontend" => EventType(:hw, :stalled_cycles_frontend),
 
-    # software events
-    "alignment-faults" => EventType(:sw, :alignment_faults),
-    "bpf-output" => EventType(:sw, :bpf_output),
-    "context-switches" => EventType(:sw, :ctx_switches),
-    "cpu-clock" => EventType(:sw, :cpu_clock),
-    "cpu-migrations" => EventType(:sw, :cpu_migrations),
-    "dummy" => EventType(:sw, :dummy),
-    "emulation-faults" => EventType(:sw, :emulation_faults),
-    "major-faults" => EventType(:sw, :major_page_faults),
-    "minor-faults" => EventType(:sw, :minor_page_faults),
-    "page-faults" => EventType(:sw, :page_faults),
-    "task-clock" => EventType(:sw, :task_clock),
+        # software events
+        "alignment-faults" => EventType(:sw, :alignment_faults),
+        "bpf-output" => EventType(:sw, :bpf_output),
+        "context-switches" => EventType(:sw, :ctx_switches),
+        "cpu-clock" => EventType(:sw, :cpu_clock),
+        "cpu-migrations" => EventType(:sw, :cpu_migrations),
+        "dummy" => EventType(:sw, :dummy),
+        "emulation-faults" => EventType(:sw, :emulation_faults),
+        "major-faults" => EventType(:sw, :major_page_faults),
+        "minor-faults" => EventType(:sw, :minor_page_faults),
+        "page-faults" => EventType(:sw, :page_faults),
+        "task-clock" => EventType(:sw, :task_clock),
 
-    # hardware cache events
-    "L1-dcache-load-misses" => EventType(:cache, :L1_data, :read, :miss),
-    "L1-dcache-loads" => EventType(:cache, :L1_data, :read, :access),
-    "L1-dcache-store-misses" => EventType(:cache, :L1_data, :write, :miss),
-    "L1-dcache-stores" => EventType(:cache, :L1_data, :write, :access),
-    "L1-icache-load-misses" => EventType(:cache, :L1_insn, :read, :miss),
-    "L1-icache-loads" => EventType(:cache, :L1_insn, :read, :access),
-    "LLC-load-misses" => EventType(:cache, :LLC, :read, :miss),
-    "LLC-loads" => EventType(:cache, :LLC, :read, :access),
-    "LLC-store-misses" => EventType(:cache, :LLC, :write, :miss),
-    "LLC-stores" => EventType(:cache, :LLC, :write, :access),
-    "dTLB-load-misses" => EventType(:cache, :TLB_data, :read, :miss),
-    "dTLB-loads" => EventType(:cache, :TLB_data, :read, :access),
-    "iTLB-load-misses" => EventType(:cache, :TLB_insn, :read, :miss),
-    "iTLB-loads" => EventType(:cache, :TLB_insn, :read, :access),
-)
+        # hardware cache events
+        "L1-dcache-load-misses" => EventType(:cache, :L1_data, :read, :miss),
+        "L1-dcache-loads" => EventType(:cache, :L1_data, :read, :access),
+        "L1-dcache-store-misses" => EventType(:cache, :L1_data, :write, :miss),
+        "L1-dcache-stores" => EventType(:cache, :L1_data, :write, :access),
+        "L1-icache-load-misses" => EventType(:cache, :L1_insn, :read, :miss),
+        "L1-icache-loads" => EventType(:cache, :L1_insn, :read, :access),
+        "LLC-load-misses" => EventType(:cache, :LLC, :read, :miss),
+        "LLC-loads" => EventType(:cache, :LLC, :read, :access),
+        "LLC-store-misses" => EventType(:cache, :LLC, :write, :miss),
+        "LLC-stores" => EventType(:cache, :LLC, :write, :access),
+        "dTLB-load-misses" => EventType(:cache, :TLB_data, :read, :miss),
+        "dTLB-loads" => EventType(:cache, :TLB_data, :read, :access),
+        "iTLB-load-misses" => EventType(:cache, :TLB_insn, :read, :miss),
+        "iTLB-loads" => EventType(:cache, :TLB_insn, :read, :access),
+    )
+
+    # Add aliases
+    d["branch"] = d["branch-instructions"]
+    d["cpu"] = d["cpu-cycles"]
+    d["idle-cycles-backend"] = d["stalled-cycles-backend"]
+    d["idle-cycles-frontend"] = d["stalled-cycles-frontend"]
+    d["migrations"] = d["cpu-migrations"]
+    d["faults"] = d["page-faults"]
+    d["cpu_atom/L1-dcache-loads/"] = d["L1-dcache-loads"]
+    d["cpu_atom/L1-dcache-stores/"] = d["L1-dcache-stores"]
+    d["cpu_atom/L1-icache-loads/"] = d["L1-icache-loads"]
+    d["cpu_atom/L1-icache-load-misses/"] = d["L1-icache-load-misses"]
+    d["cpu_atom/LLC-loads/"] = d["LLC-loads"]
+    d["cpu_atom/LLC-load-misses/"] = d["LLC-load-misses"]
+    d["cpu_atom/LLC-stores/"] = d["LLC-stores"]
+    d["cpu_atom/LLC-store-misses/"] = d["LLC-store-misses"]
+    d["cpu_atom/dTLB-loads/"] = d["dTLB-loads"]
+    d["cpu_atom/dTLB-load-misses/"] = d["dTLB-load-misses"]
+    d["cpu_atom/iTLB-load-misses/"] = d["iTLB-load-misses"]
+    d["cpu_core/L1-dcache-loads/"] = d["L1-dcache-loads"]
+    d["cpu_core/L1-dcache-load-misses/"] = d["L1-dcache-load-misses"]
+    d["cpu_core/L1-dcache-stores/"] = d["L1-dcache-stores"]
+    d["cpu_core/L1-icache-load-misses/"] = d["L1-icache-load-misses"]
+    d["cpu_core/LLC-loads/"] = d["LLC-loads"]
+    d["cpu_core/LLC-load-misses/"] = d["LLC-load-misses"]
+    d["cpu_core/LLC-stores/"] = d["LLC-stores"]
+    d["cpu_core/LLC-store-misses/"] = d["LLC-store-misses"]
+    d["cpu_core/dTLB-loads/"] = d["dTLB-loads"]
+    d["cpu_core/dTLB-load-misses/"] = d["dTLB-load-misses"]
+    d["cpu_core/iTLB-load-misses/"] = d["iTLB-load-misses"]
+    d["cpu_atom/branch-instructions/"] = d["branch-instructions"]
+    d["cpu_atom/branch-misses/"] = d["branch-misses"]
+    d["cpu_atom/cache-misses/"] = d["cache-misses"]
+    d["cpu_atom/cache-references/"] = d["cache-references"]
+    d["cpu_atom/cpu-cycles/"] = d["cpu-cycles"]
+    d["cpu_atom/instructions/"] = d["instructions"]
+    d["cpu_core/branch-instructions/"] = d["branch-instructions"]
+    d["cpu_core/branch-misses/"] = d["branch-misses"]
+    d["cpu_core/cache-misses/"] = d["cache-misses"]
+    d["cpu_core/cache-references/"] = d["cache-references"]
+    d["cpu_core/cpu-cycles/"] = d["cpu-cycles"]
+    d["cpu_core/instructions/"] = d["instructions"]
+
+    d
+end
 const EVENT_TO_NAME = Dict(event => name for (name, event) in NAME_TO_EVENT)
 
 function is_supported(event::EventType; space::Symbol)
