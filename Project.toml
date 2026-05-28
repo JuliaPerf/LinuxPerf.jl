@@ -7,5 +7,5 @@ PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
-PrettyTables = "2"
+PrettyTables = "3"
 julia = "1"
