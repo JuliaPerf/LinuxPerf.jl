@@ -1,65 +1,53 @@
+# The tests read hardware performance counters through perf_event_open, which
+# the Julia cluster's Linux test agents allow and GitHub-hosted runners do not.
+x-agents: &agents
+  queue: "test"
+  os: "linux"
+  arch: "x86_64"
+  sandbox_capable: "true"
+  sched_cpus: "1"
+  sched_cpus_limit: "4"
+  sched_mem_gib: "2"
+  sched_mem_limit_gib: "8"
+
 steps:
-  - label: "Julia v1.6 (x86-64)"
+  - label: "Julia {{matrix.julia}} (x86_64)"
     plugins:
       - JuliaCI/julia#v1:
-          version: "1.6"
-          arch: "x86_64"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "x86_64"
-    timeout_in_minutes: 60
-  - label: "Julia v1.10 (x86-64)"
+          version: "{{matrix.julia}}"
+      - JuliaCI/julia-test#v1: ~
+    agents: *agents
+    timeout_in_minutes: 30
+    matrix:
+      setup:
+        julia:
+          - "1.10"
+          - "1"
+          - "nightly"
+      adjustments:
+        - with:
+            julia: "nightly"
+          soft_fail: true
+
+  - label: "Julia {{matrix.julia}} (i686)"
     plugins:
+      # Julia for the host, which the sandbox plugin itself needs.
       - JuliaCI/julia#v1:
           version: "1.10"
-          arch: "x86_64"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "x86_64"
-    timeout_in_minutes: 60
-  - label: "Julia v1.6 (i686)"
-    plugins:
-      - JuliaCI/julia:
-          version: "1.6"
-      - staticfloat/sandbox#v1:
-         rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v5.44/agent_linux.i686.tar.gz"
-         rootfs_treehash: "c0e2d7ef8f233d978c15e61734f0dfa25aba7536"
-         workspaces:
-            - "/cache:/cache"
-      # Once inside the sandbox, install a different version of Julia to run our tests
-      - JuliaCI/julia:
-          version: "1.6"
+      - JuliaCI/sandbox#v2:
+          rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v8.5/tester_linux.i686.tar.gz"
+          rootfs_treehash: "732df9bae7e11ac7c03bd6bd4f15027750552057"
+          uid: 1000
+          gid: 1000
+      # Inside the sandbox, the 32-bit Julia that runs the tests.
+      - JuliaCI/julia#v1:
+          version: "{{matrix.julia}}"
           arch: "i686"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "x86_64"
-    timeout_in_minutes: 60
-  - label: "Julia v1.10 (i686)"
-    plugins:
-      - JuliaCI/julia:
-          version: "1.10"
-      - staticfloat/sandbox#v1:
-         rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v5.44/agent_linux.i686.tar.gz"
-         rootfs_treehash: "c0e2d7ef8f233d978c15e61734f0dfa25aba7536"
-         workspaces:
-            - "/cache:/cache"
-      # Once inside the sandbox, install a different version of Julia to run our tests
-      - JuliaCI/julia:
-          version: "1.10"
-          arch: "i686"
-      - JuliaCI/julia-test#v1:
-    agents:
-      queue: "juliaecosystem"
-      sandbox.jl: "true"
-      os: "linux"
-      arch: "x86_64"
-    timeout_in_minutes: 60
+      - JuliaCI/julia-test#v1: ~
+    agents: *agents
+    timeout_in_minutes: 30
+    matrix:
+      setup:
+        julia:
+          - "1.10"
+          - "1"
